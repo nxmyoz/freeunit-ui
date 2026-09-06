@@ -84,6 +84,10 @@
     configuration changed since this form was opened, the change is refused rather
     than overwriting someone else's edit.
   </p>
+  <label for="reason">Why (recorded with the snapshot)</label>
+  <input type="text" id="reason" name="reason" maxlength="200" value="{{ reason or '' }}"
+         placeholder="rotating the blog certificate">
+
   <div class="actions">
     {% if awaiting_confirmation %}
       <input type="hidden" name="confirm" value="yes">

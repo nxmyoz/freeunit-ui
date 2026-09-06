@@ -384,3 +384,117 @@ def test_a_clean_document_applies_without_confirmation(
     )
     assert response.status_code == 302
     assert len(recorder.writes) == 1
+
+
+# --- change lifecycle ------------------------------------------------------
+
+
+def _apply(client: FlaskClient, subpath: str, document: str, **extra: str) -> Any:
+    """Apply a document, confirming past any advisory findings."""
+    from freeunit_ui.web.writes import baseline_digest
+
+    token = _token(client, f"/edit/{subpath}")
+    data = {
+        "csrf_token": token,
+        "baseline": baseline_digest(None),
+        "document": document,
+        "action": "apply",
+        "confirm": "yes",
+        **extra,
+    }
+    return client.post(f"/edit/{subpath}", data=data)
+
+
+def test_reason_is_recorded_with_the_snapshot(writer: FlaskClient, write_app: Flask) -> None:
+    _apply(
+        writer,
+        "applications/why",
+        '{"type": "python 3", "module": "m"}',
+        reason="rotating the blog certificate",
+    )
+    store = write_app.extensions["freeunit_ui.snapshots"]
+    assert store.list()[0].reason == "rotating the blog certificate"
+
+
+def test_a_blank_reason_is_stored_as_none(writer: FlaskClient, write_app: Flask) -> None:
+    _apply(writer, "applications/why", '{"type": "python 3", "module": "m"}', reason="   ")
+    assert write_app.extensions["freeunit_ui.snapshots"].list()[0].reason is None
+
+
+def test_snapshots_page_shows_the_reason(writer: FlaskClient, write_app: Flask) -> None:
+    write_app.extensions["freeunit_ui.snapshots"].save({}, author="a", reason="a good reason")
+    assert "a good reason" in writer.get("/snapshots").get_data(as_text=True)
+
+
+def test_applying_redirects_with_an_undo_pointer(writer: FlaskClient) -> None:
+    response = _apply(writer, "applications/undoable", '{"type": "python 3", "module": "m"}')
+    assert response.status_code == 302
+    assert "undo=" in response.headers["Location"]
+    assert "outcome=applied" in response.headers["Location"]
+
+
+def test_the_undo_banner_offers_a_restore(writer: FlaskClient, write_app: Flask) -> None:
+    snapshot = write_app.extensions["freeunit_ui.snapshots"].save({"listeners": {}})
+    body = writer.get(f"/config?undo={snapshot.name}&outcome=applied").get_data(as_text=True)
+    assert "Applied." in body
+    assert f"/snapshots/{snapshot.name}/restore" in body
+
+
+def test_a_bogus_undo_name_shows_no_banner(writer: FlaskClient) -> None:
+    body = writer.get("/config?undo=../../etc/passwd&outcome=applied").get_data(as_text=True)
+    assert "Applied." not in body
+
+
+def test_no_undo_banner_when_writes_are_disabled(web: FlaskClient) -> None:
+    assert "Applied." not in web.get("/config?undo=anything").get_data(as_text=True)
+
+
+def test_a_stored_document_differing_from_what_was_sent_is_reported(tmp_path: Path) -> None:
+    # unitd accepting a document does not mean it stored it verbatim.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "PUT":
+            return httpx.Response(200, json={"success": "done"})
+        if request.url.path == "/config/applications/lossy":
+            return httpx.Response(200, json={"type": "python 3"})  # module dropped
+        return httpx.Response(200, json=DEFAULT_ROUTES.get(request.url.path, {}))
+
+    def factory() -> UnitWriteClient:
+        return UnitWriteClient(
+            httpx.Client(transport=httpx.MockTransport(handler), base_url="http://u")
+        )
+
+    app = create_app(
+        Settings(
+            enable_writes=True,
+            secret_key=SECRET,
+            snapshot_dir=tmp_path / "s",
+            session_cookie_secure=False,
+        ),
+        client_factory=factory,
+        write_client_factory=factory,
+    )
+    with app.test_client() as client:
+        from freeunit_ui.web.writes import baseline_digest
+
+        token = _token(client, "/edit/applications/lossy")
+        response = client.post(
+            "/edit/applications/lossy",
+            data={
+                "csrf_token": token,
+                "baseline": baseline_digest({"type": "python 3"}),
+                "document": '{"type": "python 3", "module": "m"}',
+                "action": "apply",
+                "confirm": "yes",
+            },
+        )
+        assert "outcome=differs" in response.headers["Location"]
+        body = client.get(response.headers["Location"]).get_data(as_text=True)
+    assert "differs from what you sent" in body
+
+
+def test_restoring_records_why(writer: FlaskClient, write_app: Flask) -> None:
+    store = write_app.extensions["freeunit_ui.snapshots"]
+    saved = store.save({"listeners": {}})
+    token = _token(writer, "/snapshots")
+    writer.post(f"/snapshots/{saved.name}/restore", data={"csrf_token": token})
+    assert store.list()[0].reason == f"before restoring snapshot {saved.name}"

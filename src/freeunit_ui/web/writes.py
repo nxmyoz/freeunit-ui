@@ -80,6 +80,7 @@ def _render_form(
     error: str | None = None,
     findings: list[Any] | None = None,
     awaiting_confirmation: bool = False,
+    reason: str = "",
 ) -> str:
     """Render the editing form in any of its states."""
     return render_template(
@@ -94,6 +95,7 @@ def _render_form(
         error=error,
         findings=findings or [],
         awaiting_confirmation=awaiting_confirmation,
+        reason=reason,
         scaffolds=scaffold_catalogue.for_path(segments),
         info=describe(segments),
         spec_version=SPEC_VERSION,
@@ -137,6 +139,7 @@ def apply(subpath: str = "") -> Response | str | tuple[str, int]:
                 document=submitted,
                 baseline=baseline,
                 error=f"That is not valid JSON: {exc}",
+                reason=request.form.get("reason", ""),
             ),
             400,
         )
@@ -153,6 +156,7 @@ def apply(subpath: str = "") -> Response | str | tuple[str, int]:
             baseline=baseline,
             findings=findings,
             awaiting_confirmation=bool(findings),
+            reason=request.form.get("reason", ""),
         )
 
     current, _ = _read_or_absent(api_path)
@@ -164,12 +168,24 @@ def apply(subpath: str = "") -> Response | str | tuple[str, int]:
         raise ConflictError(msg)
 
     with get_client() as reader:
-        get_snapshots().save(reader.get_config(), author=current_identity())
+        snapshot = get_snapshots().save(
+            reader.get_config(),
+            author=current_identity(),
+            reason=request.form.get("reason", "").strip() or None,
+        )
 
     with get_write_client() as writer:
         writer.put_json(api_path, document)
 
-    return redirect(url_for("web.config", subpath="/".join(segments)))
+    # unitd accepting a document does not mean it stored what was sent: it may
+    # normalise or drop members. Read it back and say so when it differs, since
+    # the operator is about to walk away believing the change took.
+    stored, _ = _read_or_absent(api_path)
+    outcome = "applied" if baseline_digest(stored) == baseline_digest(document) else "differs"
+
+    return redirect(
+        url_for("web.config", subpath="/".join(segments), undo=snapshot.name, outcome=outcome)
+    )
 
 
 @bp.get("/snapshots")
@@ -189,7 +205,11 @@ def restore(name: str) -> Response:
 
     # Snapshot the state we are about to replace, so restoring is itself undoable.
     with get_client() as reader:
-        store.save(reader.get_config(), author=current_identity())
+        store.save(
+            reader.get_config(),
+            author=current_identity(),
+            reason=f"before restoring snapshot {name}",
+        )
 
     with get_write_client() as writer:
         writer.put_json("/config", document)

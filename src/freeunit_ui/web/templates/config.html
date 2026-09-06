@@ -3,6 +3,21 @@
 {% block title %}Configuration{% endblock %}
 {% block content %}
 <h1>Configuration</h1>
+{% if undo %}
+<section class="applied {{ 'warn-box' if outcome == 'differs' }}" role="status">
+  {% if outcome == 'differs' %}
+  <p><strong>Applied, but what is stored differs from what you sent.</strong> FreeUnit may have
+  normalised or dropped part of the document — compare it below before relying on it.</p>
+  {% else %}
+  <p><strong>Applied.</strong> The configuration as it was beforehand is saved.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('writes.restore', name=undo.name) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="button-secondary">Undo — restore {{ undo.taken_at.strftime('%H:%M:%S') }} snapshot</button>
+  </form>
+</section>
+{% endif %}
+
 <nav aria-label="Breadcrumb" class="crumbs">
   <ol>
     <li><a href="{{ url_for('web.config') }}">config</a></li>

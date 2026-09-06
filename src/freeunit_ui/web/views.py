@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 
-from freeunit_ui.extensions import get_client, get_settings
+from freeunit_ui.extensions import get_client, get_settings, get_snapshots
 from freeunit_ui.schema import SPEC_VERSION, describe
+from freeunit_ui.snapshots import SnapshotError
 from freeunit_ui.unit.errors import UnitAPIError, UnitConnectionError, UnitError
 
 from .auth import NotAuthenticatedError
+from .csrf import issue_token
 from .paths import InvalidPathError, breadcrumbs, split_config_path, to_api_path
 
 bp = Blueprint("web", __name__)
@@ -64,6 +66,16 @@ def config(subpath: str = "") -> str:
         payload = client.get_json(to_api_path(segments))
 
     children: list[str] = sorted(payload) if isinstance(payload, dict) else []
+
+    # A change redirects here naming the snapshot taken just before it, so the
+    # way back is one click rather than a trip to the snapshots page.
+    undo = None
+    settings = get_settings()
+    if settings.enable_writes and request.args.get("undo"):
+        try:
+            undo = get_snapshots().get(request.args["undo"])
+        except SnapshotError:
+            undo = None
     document, truncated = _pretty(payload, limit=get_settings().max_render_chars)
     return render_template(
         "config.html",
@@ -74,6 +86,9 @@ def config(subpath: str = "") -> str:
         truncated=truncated,
         info=describe(segments, payload),
         spec_version=SPEC_VERSION,
+        undo=undo,
+        outcome=request.args.get("outcome"),
+        csrf_token=issue_token() if settings.enable_writes else None,
     )
 
 

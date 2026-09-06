@@ -46,6 +46,7 @@ class Snapshot:
     path: Path
     taken_at: datetime
     author: str | None = None
+    reason: str | None = None
 
     def load(self) -> Any:
         """Return the stored configuration document."""
@@ -65,7 +66,12 @@ class SnapshotStore:
         self._keep = keep
 
     def save(
-        self, document: Any, *, author: str | None = None, now: datetime | None = None
+        self,
+        document: Any,
+        *,
+        author: str | None = None,
+        reason: str | None = None,
+        now: datetime | None = None,
     ) -> Snapshot:
         """Write ``document`` as a new snapshot and prune old ones.
 
@@ -73,6 +79,9 @@ class SnapshotStore:
             document: The configuration to store.
             author: Identity the proxy asserted for whoever caused this snapshot,
                 when the interface is configured to read one.
+            reason: What the operator said they were doing. Snapshots record
+                what changed and who changed it; without this they cannot say
+                why, which is the part that matters months later.
             now: Timestamp to use, for deterministic tests.
 
         Raises:
@@ -87,14 +96,14 @@ class SnapshotStore:
             self._write_private(target, json.dumps(document, indent=2, ensure_ascii=False))
             self._write_private(
                 self._dir / f"{name}{_META_SUFFIX}",
-                json.dumps({"taken_at": taken_at.isoformat(), "author": author}),
+                json.dumps({"taken_at": taken_at.isoformat(), "author": author, "reason": reason}),
             )
         except OSError as exc:
             msg = f"Cannot write a snapshot to {self._dir}: {exc}"
             raise SnapshotError(msg) from exc
 
         self._prune()
-        return Snapshot(name=name, path=target, taken_at=taken_at, author=author)
+        return Snapshot(name=name, path=target, taken_at=taken_at, author=author, reason=reason)
 
     @staticmethod
     def _write_private(target: Path, text: str) -> None:
@@ -116,19 +125,26 @@ class SnapshotStore:
                 taken_at = datetime.strptime(name, _STAMP).replace(tzinfo=UTC)
             except ValueError:
                 continue  # not one of ours
+            author, reason = self._metadata(name)
             found.append(
-                Snapshot(name=name, path=entry, taken_at=taken_at, author=self._author(name))
+                Snapshot(name=name, path=entry, taken_at=taken_at, author=author, reason=reason)
             )
         return sorted(found, key=lambda snap: snap.taken_at, reverse=True)
 
-    def _author(self, name: str) -> str | None:
-        """Read the recorded author, tolerating a missing or damaged sidecar."""
+    def _metadata(self, name: str) -> tuple[str | None, str | None]:
+        """Read the recorded author and reason, tolerating a missing or damaged sidecar."""
         try:
             meta = json.loads((self._dir / f"{name}{_META_SUFFIX}").read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            return None
-        author = meta.get("author") if isinstance(meta, dict) else None
-        return author if isinstance(author, str) else None
+            return None, None
+        if not isinstance(meta, dict):
+            return None, None
+        author = meta.get("author")
+        reason = meta.get("reason")
+        return (
+            author if isinstance(author, str) else None,
+            reason if isinstance(reason, str) else None,
+        )
 
     def get(self, name: str) -> Snapshot:
         """Return one snapshot by name.

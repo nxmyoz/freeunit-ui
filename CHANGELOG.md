@@ -44,6 +44,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   JSON Pointer. Findings warn and ask for confirmation rather than refusing, and a Check button
   reports without applying.
 
+- A reason recorded with every change, shown on the snapshots page, so snapshots say why as well
+  as what and who.
+- Verification after applying: the subtree is read back and the result reported when what unitd
+  stored differs from what was sent.
+- A one-click undo on the page you land on after a change, restoring the snapshot taken
+  immediately before it.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

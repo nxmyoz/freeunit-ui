@@ -312,3 +312,32 @@ td form { margin: 0; }
 .findings .hint { color: inherit; opacity: 0.85; margin-bottom: 0; }
 
 button.button-secondary { background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 400; }
+
+/* Applied banner */
+
+.applied {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.applied p { margin: 0; }
+.applied form { margin: 0; }
+.applied.warn-box { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-text); }
+
+input[type="text"] {
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
