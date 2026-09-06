@@ -118,3 +118,20 @@ def test_app_uses_default_factory_when_none_given() -> None:
     assert isinstance(app, Flask)
     with app.test_client() as client:
         assert client.get("/").status_code == 502
+
+
+def test_hostile_configuration_values_cannot_inject_markup(routes: dict[str, Any]) -> None:
+    # Configuration content is attacker-influenced in the sense that whoever can
+    # write config chooses these strings; the interface must never render them raw.
+    routes["/config"] = {
+        "listeners": {
+            "<img src=x onerror=alert(1)>": {"pass": "</code></pre><script>alert(2)</script>"}
+        }
+    }
+    app = create_app(Settings(), client_factory=lambda: make_client(make_handler(routes)))
+    with app.test_client() as client:
+        body = client.get("/config").get_data(as_text=True)
+
+    assert "<script>alert(2)</script>" not in body
+    assert "onerror=alert(1)>" not in body
+    assert "&lt;script&gt;" in body

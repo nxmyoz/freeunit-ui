@@ -38,6 +38,7 @@ freeunit-ui = "freeunit_ui.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/freeunit_ui"]
+artifacts = ["src/freeunit_ui/py.typed"]
 
 [tool.ruff]
 line-length = 100
