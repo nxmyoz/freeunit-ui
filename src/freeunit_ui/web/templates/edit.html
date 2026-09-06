@@ -54,6 +54,25 @@
 <p class="detail bad-box" role="alert">{{ error }}</p>
 {% endif %}
 
+{% if findings %}
+<section class="findings" role="alert">
+  <h2>{% if awaiting_confirmation %}This looks wrong{% else %}Checked{% endif %}</h2>
+  <ul>
+    {% for f in findings %}
+    <li class="{{ 'certain' if f.is_certain else 'uncertain' }}">
+      <code>{{ f.pointer }}</code> — {{ f.message }}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="hint">
+    Checked against the specification bundled with this interface, FreeUnit {{ spec_version }},
+    which may be older than your server. These are suggestions: your server decides, and you can
+    apply anyway.
+  </p>
+</section>
+{% elif awaiting_confirmation is defined and awaiting_confirmation == false and findings is defined and request.method == 'POST' %}
+{% endif %}
+
 <form method="post" action="{{ url_for('writes.apply', subpath=subpath) if subpath else url_for('writes.apply') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="baseline" value="{{ baseline }}">
@@ -66,7 +85,13 @@
     than overwriting someone else's edit.
   </p>
   <div class="actions">
-    <button type="submit">Apply</button>
+    {% if awaiting_confirmation %}
+      <input type="hidden" name="confirm" value="yes">
+      <button type="submit" name="action" value="apply">Apply anyway</button>
+    {% else %}
+      <button type="submit" name="action" value="apply">Apply</button>
+      <button type="submit" name="action" value="check" class="button-secondary">Check</button>
+    {% endif %}
     <a class="button-secondary" href="{{ url_for('web.config', subpath=subpath) if subpath else url_for('web.config') }}">Cancel</a>
   </div>
 </form>

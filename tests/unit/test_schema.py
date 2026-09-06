@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from freeunit_ui.schema import SPEC_VERSION, describe
+from freeunit_ui.schema import SPEC_VERSION, describe, validation
 from freeunit_ui.schema import scaffolds as catalogue
+from freeunit_ui.schema.scaffolds import Scaffold
 
 
 def test_spec_version_is_recorded() -> None:
@@ -29,8 +30,9 @@ def test_listener_members_are_described() -> None:
     info = describe(["listeners", "*:443"], {"pass": "routes/main"})
     assert info is not None
     assert {m.name for m in info.members} == {"pass", "tls", "forwarded"}
-    assert info.member("pass") is not None
-    assert info.member("pass").description
+    member = info.member("pass")
+    assert member is not None
+    assert member.description
 
 
 @pytest.mark.parametrize(
@@ -55,8 +57,12 @@ def test_common_members_are_merged_in_from_all_of() -> None:
 def test_defaults_and_enums_are_reported() -> None:
     info = describe(["applications", "app"], {"type": "python 3"})
     assert info is not None
-    assert info.member("callable").default == "application"
-    assert "python" in info.member("type").enum
+    callable_member = info.member("callable")
+    type_member = info.member("type")
+    assert callable_member is not None
+    assert type_member is not None
+    assert callable_member.default == "application"
+    assert "python" in type_member.enum
 
 
 def test_unknown_members_are_flagged_not_removed() -> None:
@@ -82,7 +88,7 @@ def test_describe_without_a_document_still_works() -> None:
 
 
 @pytest.mark.parametrize("scaffold", catalogue.SCAFFOLDS, ids=lambda s: s.key)
-def test_every_scaffold_satisfies_its_schemas_required_members(scaffold) -> None:
+def test_every_scaffold_satisfies_its_schemas_required_members(scaffold: Scaffold) -> None:
     """The guard that keeps hand-written scaffolds honest.
 
     If a FreeUnit release adds a required member, this fails rather than the
@@ -96,7 +102,7 @@ def test_every_scaffold_satisfies_its_schemas_required_members(scaffold) -> None
 
 
 @pytest.mark.parametrize("scaffold", catalogue.SCAFFOLDS, ids=lambda s: s.key)
-def test_no_scaffold_invents_members(scaffold) -> None:
+def test_no_scaffold_invents_members(scaffold: Scaffold) -> None:
     info = describe([*scaffold.applies_to, "example"], scaffold.document)
     assert info is not None
     assert not info.unknown_members, f"{scaffold.key} uses unknown members"
@@ -122,6 +128,86 @@ def test_scaffold_lookup() -> None:
 
 
 def test_scaffold_renders_as_json() -> None:
-    rendered = catalogue.get("listener-tls").as_json()
+    scaffold = catalogue.get("listener-tls")
+    assert scaffold is not None
+    rendered = scaffold.as_json()
     assert rendered.startswith("{")
     assert "certificate" in rendered
+
+
+# --- advisory checks ------------------------------------------------------
+
+
+def test_missing_required_member_is_reported() -> None:
+    findings = validation.check(["applications", "x"], {"type": "python 3"})
+    assert [f.kind for f in findings] == ["missing_required"]
+    assert "module" in findings[0].message
+
+
+def test_wrong_type_is_reported_with_a_pointer() -> None:
+    findings = validation.check(["applications", "x"], {"type": "python 3", "module": 123})
+    assert findings[0].kind == "wrong_type"
+    assert findings[0].pointer == "/module"
+
+
+def test_type_checks_reach_nested_objects() -> None:
+    findings = validation.check(["listeners", "*:443"], {"pass": "r", "tls": {"certificate": 123}})
+    assert [f.pointer for f in findings] == ["/tls/certificate"]
+
+
+def test_value_outside_an_enum_is_reported() -> None:
+    findings = validation.check(["applications", "x"], {"type": "cobol", "module": "m"})
+    assert [f.kind for f in findings] == ["not_in_enum"]
+
+
+def test_an_unrecognised_type_does_not_make_real_members_look_unknown() -> None:
+    # The branch cannot be resolved, so only shared members are described.
+    # Reporting 'module' as unknown would be a false positive.
+    findings = validation.check(["applications", "x"], {"type": "cobol", "module": "m"})
+    assert not [f for f in findings if f.kind == "unknown_member"]
+
+
+def test_unknown_members_are_reported_but_marked_uncertain() -> None:
+    findings = validation.check(
+        ["applications", "x"], {"type": "python 3", "module": "m", "invented": 1}
+    )
+    assert [f.kind for f in findings] == ["unknown_member"]
+    assert findings[0].is_certain is False
+
+
+def test_likely_mistakes_sort_before_drift() -> None:
+    findings = validation.check(["applications", "x"], {"type": "python 3", "invented": 1})
+    assert [f.kind for f in findings] == ["missing_required", "unknown_member"]
+
+
+def test_booleans_do_not_satisfy_integers() -> None:
+    findings = validation.check(
+        ["applications", "x"], {"type": "python 3", "module": "m", "threads": True}
+    )
+    assert [f.kind for f in findings] == ["wrong_type"]
+
+
+@pytest.mark.parametrize(
+    ("segments", "document"),
+    [
+        (["applications", "x"], {"type": "python 3", "module": "app.wsgi"}),
+        (["applications", "x"], {"type": "php", "root": "/srv"}),
+        (["listeners", "*:443"], {"pass": "routes/main", "tls": {"certificate": "c"}}),
+        (["applications", "x"], {"type": "python 3", "module": "m", "processes": 4}),
+    ],
+)
+def test_valid_documents_produce_no_findings(
+    segments: list[str], document: dict[str, object]
+) -> None:
+    assert validation.check(segments, document) == []
+
+
+def test_undescribed_paths_are_not_judged() -> None:
+    # Silence is the only honest answer for something the specification does
+    # not cover; it must not be reported as invalid.
+    assert validation.check(["not_a_section"], {"anything": 1}) == []
+
+
+@pytest.mark.parametrize("scaffold", catalogue.SCAFFOLDS, ids=lambda s: s.key)
+def test_no_scaffold_produces_findings(scaffold: Scaffold) -> None:
+    assert validation.check([*scaffold.applies_to, "example"], scaffold.document) == []

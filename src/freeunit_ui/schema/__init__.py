@@ -148,6 +148,13 @@ def _select_branch(node: Any, document: Any) -> Any:
     schema_name = _APPLICATION_SCHEMAS.get(kind)
     if schema_name:
         return {"$ref": f"#/components/schemas/{schema_name}"}
+
+    # An unrecognised type resolves no branch, which would silently disable
+    # every check. Fall back to what all applications share, so at least the
+    # type itself - which carries the enum of valid values - is described.
+    refs = {str(b.get("$ref", "")).rsplit("/", 1)[-1] for b in target["anyOf"]}
+    if refs <= set(_APPLICATION_SCHEMAS.values()):
+        return {"$ref": "#/components/schemas/configApplicationCommon"}
     return node
 
 
@@ -196,3 +203,52 @@ def describe(segments: list[str], value: Any = None) -> SchemaInfo | None:
         unknown = tuple(sorted(key for key in value if key not in props))
 
     return SchemaInfo(description=description, members=members, unknown_members=unknown)
+
+
+def raw_properties(segments: list[str], value: Any = None) -> dict[str, Any]:
+    """Return the raw schema properties at a path, for callers needing declared types."""
+    node: Any = {"$ref": "#/components/schemas/config"}
+    for segment in segments:
+        node = _descend(node, segment)
+        if node is None:
+            return {}
+    props, _, _ = _resolve(_select_branch(node, value))
+    return props
+
+
+#: JSON type names mapped onto the Python types that satisfy them.
+_JSON_TYPES: dict[str, tuple[type, ...]] = {
+    "string": (str,),
+    "integer": (int,),
+    "number": (int, float),
+    "boolean": (bool,),
+    "object": (dict,),
+    "array": (list,),
+}
+
+
+def accepted_types(prop: Any, seen: tuple[str, ...] = ()) -> tuple[type, ...]:
+    """Return the Python types a schema node permits, empty when unconstrained.
+
+    Resolves ``$ref`` and unions, because a member such as a TLS certificate is
+    declared as a reference to a schema that is itself a string-or-array union.
+    """
+    if not isinstance(prop, dict):
+        return ()
+
+    ref = prop.get("$ref")
+    if isinstance(ref, str):
+        name = ref.rsplit("/", 1)[-1]
+        if name in seen:
+            return ()
+        return accepted_types(_schemas().get(name, {}), (*seen, name))
+
+    declared = prop.get("type")
+    if isinstance(declared, str):
+        return _JSON_TYPES.get(declared, ())
+
+    accepted: tuple[type, ...] = ()
+    for key in ("anyOf", "oneOf"):
+        for option in prop.get(key) or ():
+            accepted += accepted_types(option, seen)
+    return accepted

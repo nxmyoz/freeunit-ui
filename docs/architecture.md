@@ -77,6 +77,16 @@ refused something a newer server accepts would be worse than no schema at all. S
 are reported, never removed, and nothing here can block an apply — the server's rejection, with its
 JSON Pointer, remains the real answer.
 
+`schema/validation.py` adds checks on top of that, and inherits the same restraint: a finding is
+a suggestion. The apply path asks for confirmation when something looks wrong and proceeds when
+the operator says so, because the alternative — refusing — would eventually refuse a correct
+document that a newer server would have accepted.
+
+One subtlety worth keeping: when a document's `type` is not one the specification knows, no branch
+can be resolved and only the members common to every application are described. Member names are
+then unjudgeable, so unknown-member findings are suppressed for that node; otherwise every real
+member of a newer application type would be reported as unrecognised.
+
 Scaffolds are written by hand rather than generated, because a document assembled from types alone
 is valid and useless. They are checked against the schema by the test suite instead: every scaffold
 must carry every member its schema marks required, so a FreeUnit release that adds one fails the

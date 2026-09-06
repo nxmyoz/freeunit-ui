@@ -26,6 +26,7 @@ from werkzeug.wrappers import Response
 from freeunit_ui.extensions import get_client, get_snapshots, get_write_client
 from freeunit_ui.schema import SPEC_VERSION, describe
 from freeunit_ui.schema import scaffolds as scaffold_catalogue
+from freeunit_ui.schema.validation import check as check_document
 from freeunit_ui.unit.errors import UnitAPIError
 
 from .auth import current_identity
@@ -70,6 +71,35 @@ def _read_or_absent(api_path: str) -> tuple[Any, bool]:
         raise
 
 
+def _render_form(
+    segments: list[str],
+    *,
+    document: str,
+    baseline: str,
+    absent: bool = False,
+    error: str | None = None,
+    findings: list[Any] | None = None,
+    awaiting_confirmation: bool = False,
+) -> str:
+    """Render the editing form in any of its states."""
+    return render_template(
+        "edit.html",
+        segments=segments,
+        crumbs=breadcrumbs(segments),
+        subpath="/".join(segments),
+        document=document,
+        baseline=baseline,
+        csrf_token=issue_token(),
+        absent=absent,
+        error=error,
+        findings=findings or [],
+        awaiting_confirmation=awaiting_confirmation,
+        scaffolds=scaffold_catalogue.for_path(segments),
+        info=describe(segments),
+        spec_version=SPEC_VERSION,
+    )
+
+
 @bp.get("/edit/")
 @bp.get("/edit/<path:subpath>")
 def edit(subpath: str = "") -> str:
@@ -80,53 +110,53 @@ def edit(subpath: str = "") -> str:
     chosen = scaffold_catalogue.get(request.args.get("template", ""))
     document = chosen.as_json() if chosen else json.dumps(payload, indent=2, ensure_ascii=False)
 
-    return render_template(
-        "edit.html",
-        segments=segments,
-        crumbs=breadcrumbs(segments),
-        subpath="/".join(segments),
+    return _render_form(
+        segments,
         document="" if absent and not chosen else document,
         baseline=baseline_digest(payload),
-        csrf_token=issue_token(),
         absent=absent,
-        scaffolds=scaffold_catalogue.for_path(segments),
-        info=describe(segments, payload),
-        spec_version=SPEC_VERSION,
     )
 
 
 @bp.post("/edit/")
 @bp.post("/edit/<path:subpath>")
-def apply(subpath: str = "") -> Response | tuple[str, int]:
+def apply(subpath: str = "") -> Response | str | tuple[str, int]:
     """Validate, snapshot and apply an edited subtree."""
     validate(request.form.get(FIELD_NAME))
     segments = split_config_path(subpath)
     api_path = to_api_path(segments)
 
     submitted = request.form.get("document", "")
+    baseline = request.form.get("baseline", "")
     try:
         document = json.loads(submitted)
     except ValueError as exc:
         return (
-            render_template(
-                "edit.html",
-                segments=segments,
-                crumbs=breadcrumbs(segments),
-                subpath="/".join(segments),
+            _render_form(
+                segments,
                 document=submitted,
-                baseline=request.form.get("baseline", ""),
-                csrf_token=issue_token(),
+                baseline=baseline,
                 error=f"That is not valid JSON: {exc}",
-                absent=False,
-                scaffolds=scaffold_catalogue.for_path(segments),
-                info=describe(segments),
-                spec_version=SPEC_VERSION,
             ),
             400,
         )
 
+    # Advisory only. The bundled specification is pinned to one release while
+    # the server is not, so findings warn and ask rather than refuse: the
+    # operator can always proceed, and unitd remains the authority.
+    findings = check_document(segments, document)
+    confirmed = request.form.get("confirm") == "yes"
+    if request.form.get("action") == "check" or (findings and not confirmed):
+        return _render_form(
+            segments,
+            document=submitted,
+            baseline=baseline,
+            findings=findings,
+            awaiting_confirmation=bool(findings),
+        )
+
     current, _ = _read_or_absent(api_path)
-    if baseline_digest(current) != request.form.get("baseline"):
+    if baseline_digest(current) != baseline:
         msg = (
             "The configuration changed while you were editing it. Reload the form "
             "to see the current value before applying your change."

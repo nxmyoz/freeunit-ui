@@ -39,6 +39,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   yet, which now creates it rather than failing to load.
 - `tools/vendor_spec.py` to re-vendor the specification on a FreeUnit bump.
 
+- Advisory checks before applying a configuration: missing required members, values outside an
+  enum, wrong types (including inside nested objects), and unrecognised member names, each at a
+  JSON Pointer. Findings warn and ask for confirmation rather than refusing, and a Check button
+  reports without applying.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

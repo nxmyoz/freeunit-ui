@@ -306,3 +306,81 @@ def test_creating_an_absent_member_applies(writer: FlaskClient, recorder: Record
     assert recorder.writes == [
         ("PUT", "/config/applications/brand-new", {"type": "python 3", "module": "new.wsgi"})
     ]
+
+
+# --- advisory checks in the form -------------------------------------------
+
+
+def test_check_button_reports_without_applying(writer: FlaskClient, recorder: Recorder) -> None:
+    token = _token(writer, "/edit/applications/new")
+    response = writer.post(
+        "/edit/applications/new",
+        data={
+            "csrf_token": token,
+            "baseline": "irrelevant",
+            "document": '{"type": "python 3"}',
+            "action": "check",
+        },
+    )
+    assert response.status_code == 200
+    assert "is required here" in response.get_data(as_text=True)
+    assert recorder.writes == []
+
+
+def test_apply_with_findings_asks_before_writing(writer: FlaskClient, recorder: Recorder) -> None:
+    from freeunit_ui.web.writes import baseline_digest
+
+    token = _token(writer, "/edit/applications/new")
+    response = writer.post(
+        "/edit/applications/new",
+        data={
+            "csrf_token": token,
+            "baseline": baseline_digest(None),
+            "document": '{"type": "python 3"}',
+            "action": "apply",
+        },
+    )
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "This looks wrong" in body
+    assert "Apply anyway" in body
+    assert recorder.writes == []
+
+
+def test_confirming_applies_despite_findings(writer: FlaskClient, recorder: Recorder) -> None:
+    # Findings are advisory: the operator can always proceed, because the
+    # bundled specification may simply be older than the server.
+    from freeunit_ui.web.writes import baseline_digest
+
+    token = _token(writer, "/edit/applications/new")
+    response = writer.post(
+        "/edit/applications/new",
+        data={
+            "csrf_token": token,
+            "baseline": baseline_digest(None),
+            "document": '{"type": "python 3"}',
+            "action": "apply",
+            "confirm": "yes",
+        },
+    )
+    assert response.status_code == 302
+    assert recorder.writes == [("PUT", "/config/applications/new", {"type": "python 3"})]
+
+
+def test_a_clean_document_applies_without_confirmation(
+    writer: FlaskClient, recorder: Recorder
+) -> None:
+    from freeunit_ui.web.writes import baseline_digest
+
+    token = _token(writer, "/edit/applications/new")
+    response = writer.post(
+        "/edit/applications/new",
+        data={
+            "csrf_token": token,
+            "baseline": baseline_digest(None),
+            "document": '{"type": "python 3", "module": "new.wsgi"}',
+            "action": "apply",
+        },
+    )
+    assert response.status_code == 302
+    assert len(recorder.writes) == 1

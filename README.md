@@ -97,6 +97,14 @@ and their permitted values — chosen for the right application type, since a Py
 a PHP one have different shapes. Creating a listener or an application offers a starting point with
 the required members already present.
 
+Editing also checks the document before it is sent: missing required members, values outside a
+permitted set, members of the wrong type, and names the specification does not recognise — each
+reported at a JSON Pointer, the way unitd reports its own errors. A typo like `modul` shows up
+twice, as a missing `module` and an unrecognised `modul`, which is exactly the signal you want.
+
+Findings **warn and ask**; they never refuse. You get an *Apply anyway* button, and a *Check*
+button to look before applying.
+
 It is **guidance, never a gate**. unitd does not serve its own specification, so the bundled copy
 is pinned to one release and will drift from your server: a newer FreeUnit will accept members it
 has never heard of. Nothing here refuses a configuration, unknown members are reported rather than

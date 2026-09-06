@@ -293,3 +293,22 @@ td form { margin: 0; }
   font-size: 0.9rem;
 }
 .scaffolds a:hover { border-color: var(--accent); }
+
+/* Advisory findings */
+
+.findings {
+  border: 1px solid var(--warn-text);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.findings h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+.findings ul { margin: 0; padding-left: 1.1rem; }
+.findings li { margin-bottom: 0.25rem; }
+.findings li.uncertain { opacity: 0.85; }
+.findings code { font-weight: 600; }
+.findings .hint { color: inherit; opacity: 0.85; margin-bottom: 0; }
+
+button.button-secondary { background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 400; }
