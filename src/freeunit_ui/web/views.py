@@ -118,6 +118,12 @@ def certificates() -> str:
     )
 
 
+@bp.app_errorhandler(SnapshotError)
+def _snapshot_missing(error: SnapshotError) -> tuple[str, int]:
+    """Render a 404 for a snapshot that does not exist."""
+    return render_template("error.html", title="No such snapshot", detail=str(error)), 404
+
+
 @bp.app_errorhandler(NotAuthenticatedError)
 def _not_authenticated(error: NotAuthenticatedError) -> tuple[str, int]:
     """Render a 401 when the proxy asserted no identity."""

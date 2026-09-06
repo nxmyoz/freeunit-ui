@@ -23,6 +23,7 @@ from typing import Any
 from flask import Blueprint, redirect, render_template, request, url_for
 from werkzeug.wrappers import Response
 
+from freeunit_ui.diff import compare
 from freeunit_ui.extensions import get_client, get_snapshots, get_write_client
 from freeunit_ui.schema import SPEC_VERSION, describe
 from freeunit_ui.schema import scaffolds as scaffold_catalogue
@@ -281,6 +282,34 @@ def snapshots() -> str:
     """List stored configuration snapshots."""
     return render_template(
         "snapshots.html", snapshots=get_snapshots().list(), csrf_token=issue_token()
+    )
+
+
+@bp.get("/snapshots/<name>/diff")
+def diff(name: str) -> str:
+    """Show what changed between a snapshot and the running configuration.
+
+    ``against`` compares two snapshots instead, which is how a change made
+    between two known points is isolated.
+    """
+    store = get_snapshots()
+    snapshot = store.get(name)
+
+    other = request.args.get("against", "")
+    if other:
+        comparison = store.get(other)
+        later, later_label = comparison.load(), comparison.name
+    else:
+        with get_client() as reader:
+            later = reader.get_config()
+        later_label = "running configuration"
+
+    return render_template(
+        "diff.html",
+        snapshot=snapshot,
+        later_label=later_label,
+        changes=compare(snapshot.load(), later),
+        others=[s for s in store.list() if s.name != name],
     )
 
 

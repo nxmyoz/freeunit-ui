@@ -445,3 +445,43 @@ def test_restoring_records_why(writer: FlaskClient, write_app: Flask) -> None:
     token = _token(writer, "/snapshots")
     writer.post(f"/snapshots/{saved.name}/restore", data={"csrf_token": token})
     assert store.list()[0].reason == f"before restoring snapshot {saved.name}"
+
+
+# --- diff ------------------------------------------------------------------
+
+
+def test_diff_against_the_running_configuration(writer: FlaskClient, write_app: Flask) -> None:
+    store = write_app.extensions["freeunit_ui.snapshots"]
+    saved = store.save({"listeners": {"*:80": {"pass": "routes/old"}}})
+    body = writer.get(f"/snapshots/{saved.name}/diff").get_data(as_text=True)
+    assert "running configuration" in body
+    assert "/listeners" in body
+
+
+def test_diff_between_two_snapshots(writer: FlaskClient, write_app: Flask) -> None:
+    store = write_app.extensions["freeunit_ui.snapshots"]
+    first = store.save({"settings": {"http": {"idle_timeout": 180}}})
+    second = store.save({"settings": {"http": {"idle_timeout": 30}}})
+    body = writer.get(f"/snapshots/{first.name}/diff?against={second.name}").get_data(as_text=True)
+    assert "/settings/http/idle_timeout" in body
+    assert "180" in body
+    assert "30" in body
+
+
+def test_diff_of_an_unchanged_snapshot_says_so(writer: FlaskClient, write_app: Flask) -> None:
+    from tests.conftest import CONFIG_PAYLOAD
+
+    store = write_app.extensions["freeunit_ui.snapshots"]
+    saved = store.save(CONFIG_PAYLOAD)
+    body = writer.get(f"/snapshots/{saved.name}/diff").get_data(as_text=True)
+    assert "No differences" in body
+
+
+def test_diff_of_a_missing_snapshot_is_a_404(writer: FlaskClient) -> None:
+    assert writer.get("/snapshots/nope/diff").status_code == 404
+
+
+def test_snapshots_page_links_to_the_diff(writer: FlaskClient, write_app: Flask) -> None:
+    saved = write_app.extensions["freeunit_ui.snapshots"].save({})
+    body = writer.get("/snapshots").get_data(as_text=True)
+    assert f"/snapshots/{saved.name}/diff" in body

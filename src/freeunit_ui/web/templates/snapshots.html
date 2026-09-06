@@ -16,10 +16,13 @@
       <td>{{ snap.reason or '—' }}</td>
       <td><code>{{ snap.name }}</code></td>
       <td>
-        <form method="post" action="{{ url_for('writes.restore', name=snap.name) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit">Restore</button>
-        </form>
+        <div class="row-actions">
+          <a class="button-secondary" href="{{ url_for('writes.diff', name=snap.name) }}">Changes since</a>
+          <form method="post" action="{{ url_for('writes.restore', name=snap.name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit">Restore</button>
+          </form>
+        </div>
       </td>
     </tr>
   {% endfor %}

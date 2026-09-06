@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% set active = 'snapshots' %}
+{% block title %}Changes{% endblock %}
+{% block content %}
+<h1>Changes</h1>
+<p class="detail">
+  From snapshot <code>{{ snapshot.name }}</code>
+  {%- if snapshot.author %}, taken by {{ snapshot.author }}{% endif %}
+  {%- if snapshot.reason %} — {{ snapshot.reason }}{% endif %},
+  to {{ later_label }}.
+</p>
+
+{% if others %}
+<form method="get" class="compare">
+  <label for="against">Compare against another snapshot instead</label>
+  <select id="against" name="against">
+    <option value="">the running configuration</option>
+    {% for other in others %}
+    <option value="{{ other.name }}">{{ other.taken_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}{% if other.reason %} — {{ other.reason }}{% endif %}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="button-secondary">Compare</button>
+</form>
+{% endif %}
+
+{% if changes %}
+<div class="scroller">
+<table>
+  <thead><tr><th scope="col">Where</th><th scope="col">Change</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+  <tbody>
+  {% for c in changes %}
+    <tr>
+      <th scope="row"><code>{{ c.pointer }}</code></th>
+      <td><span class="change {{ c.kind }}">{{ c.kind }}</span></td>
+      <td><code class="value">{{ c.before_text or '—' }}</code></td>
+      <td><code class="value">{{ c.after_text or '—' }}</code></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">No differences: the configuration is exactly as this snapshot recorded it.</p>
+{% endif %}
+{% endblock %}

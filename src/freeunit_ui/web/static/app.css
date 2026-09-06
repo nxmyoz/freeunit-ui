@@ -374,3 +374,24 @@ input[type="number"] { width: 12rem; }
   dl.fields { grid-template-columns: 1fr; }
   dl.fields dt { padding-top: 0.75rem; }
 }
+
+/* Diff */
+
+.change {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+.change.added { background: #d8f0d8; color: #14501a; }
+.change.removed { background: var(--bad-bg); color: var(--bad-text); }
+.change.changed { background: var(--warn-bg); color: var(--warn-text); }
+@media (prefers-color-scheme: dark) { .change.added { background: #1d3a1f; color: #a8e0ac; } }
+
+code.value { word-break: break-all; font-size: 0.85rem; }
+.row-actions { display: flex; gap: 0.5rem; align-items: center; }
+.row-actions form { margin: 0; }
+form.compare { display: flex; gap: 0.6rem; align-items: end; flex-wrap: wrap; margin-bottom: 1.25rem; }
+form.compare label { margin: 0; }
