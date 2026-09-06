@@ -39,13 +39,13 @@ tricked into writing.
 ## Quick start
 
 ```console
-$ git clone <this repository> && cd freeunit-ui
+$ git clone ssh://git@git.dtsi.eu:4242/dtsi/freeunit-ui.git && cd freeunit-ui
 $ python -m venv .venv && . .venv/bin/activate
 $ pip install -e .
 $ FREEUNIT_UI_CONTROL=/run/freeunit.sock freeunit-ui
 ```
 
-Not released anywhere yet, so there is no `pip install freeunit-ui`.
+Not published yet, so there is no `pip install freeunit-ui`.
 
 Then open <http://127.0.0.1:8099/>.
 
