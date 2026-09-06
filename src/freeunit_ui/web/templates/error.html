@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p class="detail">{{ detail }}</p>
+{% if location is defined and location is not none %}
+<p>Reported at configuration path <code>{{ location or '/' }}</code>.</p>
+{% endif %}
+{% if suggestion is defined and suggestion %}
+<p>The API suggests <code>{{ suggestion }}</code>.</p>
+{% endif %}
+{% if hint is defined and hint %}
+<p class="hint">{{ hint }}</p>
+{% endif %}
+{% endblock %}

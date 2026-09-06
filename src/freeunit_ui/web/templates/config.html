@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set active = 'config' %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+<h1>Configuration</h1>
+<nav aria-label="Breadcrumb" class="crumbs">
+  <ol>
+    <li><a href="{{ url_for('web.config') }}">config</a></li>
+    {% for label, target in crumbs %}
+      <li>{% if not loop.last %}<a href="{{ url_for('web.config', subpath=target) }}">{{ label }}</a>{% else %}<span aria-current="page">{{ label }}</span>{% endif %}</li>
+    {% endfor %}
+  </ol>
+</nav>
+
+{% if children %}
+<h2>Members</h2>
+<ul class="members">
+  {% for child in children %}
+  <li><a href="{{ url_for('web.config', subpath=(segments + [child]) | join('/')) }}">{{ child }}</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Document</h2>
+<pre class="doc"><code>{{ document }}</code></pre>
+{% endblock %}

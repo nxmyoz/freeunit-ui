@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}FreeUnit{% endblock %} &middot; FreeUnit UI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <nav aria-label="Primary">
+    <span class="brand">FreeUnit&nbsp;UI</span>
+    <ul>
+      <li><a href="{{ url_for('web.dashboard') }}" {% if active == 'dashboard' %}aria-current="page"{% endif %}>Overview</a></li>
+      <li><a href="{{ url_for('web.config') }}" {% if active == 'config' %}aria-current="page"{% endif %}>Configuration</a></li>
+      <li><a href="{{ url_for('web.certificates') }}" {% if active == 'certificates' %}aria-current="page"{% endif %}>Certificates</a></li>
+    </ul>
+  </nav>
+</header>
+<main id="main">
+{% block content %}{% endblock %}
+</main>
+<footer class="site">
+  <p>Read-only interface. Configuration changes must be made through the control API.</p>
+</footer>
+</body>
+</html>

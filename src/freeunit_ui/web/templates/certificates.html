@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set active = 'certificates' %}
+{% block title %}Certificates{% endblock %}
+{% block content %}
+<h1>Certificates</h1>
+{% if rows %}
+<div class="scroller">
+<table>
+  <thead><tr><th scope="col">Bundle</th><th scope="col">Common name</th><th scope="col">Issuer</th><th scope="col">Alt names</th><th scope="col">Expires</th></tr></thead>
+  <tbody>
+  {% for name, bundle, days in rows %}
+    {% set leaf = bundle.leaf %}
+    <tr>
+      <th scope="row">{{ name }}</th>
+      <td>{{ leaf.subject.common_name if leaf else '—' }}</td>
+      <td>{{ leaf.issuer.common_name if leaf else '—' }}</td>
+      <td>{% if leaf and leaf.subject.alt_names %}{{ leaf.subject.alt_names | join(', ') }}{% else %}—{% endif %}</td>
+      <td class="{% if days is not none and days < 0 %}bad{% elif days is not none and days <= warning_days %}warn{% endif %}">
+        {%- if days is none -%}
+          {{ leaf.validity.until if leaf and leaf.validity.until else 'unknown' }}
+        {%- elif days < 0 -%}
+          Expired {{ -days }} day{{ '' if -days == 1 else 's' }} ago
+        {%- else -%}
+          in {{ days }} day{{ '' if days == 1 else 's' }}
+        {%- endif -%}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">No certificate bundles are stored.</p>
+{% endif %}
+{% endblock %}
