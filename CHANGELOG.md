@@ -29,6 +29,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `freeunit_ui.wsgi:application` entry point, and `deploy/` with working FreeUnit and nginx
   configuration for running the interface under FreeUnit behind nginx.
 
+- `tools/demo.py`, which runs the interface against a fake control API so it can be looked at
+  and worked on without a FreeUnit instance.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

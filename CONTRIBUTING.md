@@ -37,6 +37,18 @@ $ pytest
 
 All four must pass. Coverage is enforced at 90%.
 
+## Looking at it without a FreeUnit instance
+
+```console
+$ python tools/demo.py --writes --user alice@example.org
+```
+
+That serves canned but realistic control API responses over a temporary UNIX socket and runs the
+interface against them on <http://127.0.0.1:8099/>. The fixture deliberately includes a
+certificate expiring soon and one already expired, failing telemetry spans, and applications in
+three languages, so the states worth designing for are all visible. `--user` stands in for the
+reverse proxy asserting an identity. Nothing under `tools/` is part of the installed package.
+
 ## Testing without a FreeUnit instance
 
 The control API client takes an injected `httpx.Client`, so tests drive it with

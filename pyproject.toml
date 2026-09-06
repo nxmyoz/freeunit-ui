@@ -81,7 +81,7 @@ python_version = "3.11"
 strict = true
 warn_unreachable = true
 disallow_any_generics = true
-files = ["src", "tests"]
+files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

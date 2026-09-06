@@ -55,6 +55,17 @@ Then open <http://127.0.0.1:8099/>.
 `freeunit-ui` runs Flask's development server, which is fine for a look around and not for
 anything else. For real deployments see [docs/deployment.md](docs/deployment.md).
 
+## Looking at it first
+
+No FreeUnit needed:
+
+```console
+$ python tools/demo.py --writes --user alice@example.org
+```
+
+This runs the interface against a fake control API with realistic data, on
+<http://127.0.0.1:8099/>.
+
 ## Configuration
 
 Every setting is an environment variable prefixed `FREEUNIT_UI_`.
