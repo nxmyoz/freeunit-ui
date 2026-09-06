@@ -166,10 +166,48 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(200, found)
 
     def do_PUT(self) -> None:
-        """Accept any change without validating it."""
+        """Store a change, so the demo behaves like a server that remembers.
+
+        Discarding writes would make the features built on top of them - diff,
+        undo, and the check that what was stored matches what was sent -
+        impossible to see.
+        """
         length = int(self.headers.get("Content-Length", "0"))
-        self.rfile.read(length)
-        # Accept everything: this is a fake, not a validator.
+        body = self.rfile.read(length)
+
+        if self.path.startswith("/certificates/"):
+            from urllib.parse import unquote
+
+            CERTIFICATES[unquote(self.path[len("/certificates/") :])] = {
+                "key": "stored by the demo",
+                "chain": [
+                    {
+                        "subject": {"common_name": "uploaded.example"},
+                        "issuer": {"common_name": "demo"},
+                        "validity": {"since": _in_days(0), "until": _in_days(90)},
+                    }
+                ],
+            }
+            self._respond(200, {"success": "Certificate chain uploaded."})
+            return
+
+        try:
+            document = json.loads(body)
+        except ValueError:
+            self._respond(400, {"error": "Invalid JSON."})
+            return
+
+        segments = [s for s in self.path[len("/config") :].split("/") if s]
+        if not segments:
+            CONFIG.clear()
+            CONFIG.update(document)
+        else:
+            from urllib.parse import unquote
+
+            node: Any = CONFIG
+            for key in [unquote(s) for s in segments[:-1]]:
+                node = node.setdefault(key, {})
+            node[unquote(segments[-1])] = document
         self._respond(200, {"success": "Reconfiguration done."})
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
