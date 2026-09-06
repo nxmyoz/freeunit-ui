@@ -15,9 +15,16 @@ from .paths import InvalidPathError, breadcrumbs, split_config_path, to_api_path
 bp = Blueprint("web", __name__)
 
 
-def _pretty(payload: Any) -> str:
-    """Render a JSON document for display, preserving key order."""
-    return json.dumps(payload, indent=2, ensure_ascii=False)
+def _pretty(payload: Any, *, limit: int) -> tuple[str, bool]:
+    """Render a JSON document for display, truncating an oversized one.
+
+    A configuration can be arbitrarily large, and embedding megabytes of it in a
+    page helps nobody. Returns the text and whether it was truncated.
+    """
+    text = json.dumps(payload, indent=2, ensure_ascii=False)
+    if len(text) <= limit:
+        return text, False
+    return text[:limit], True
 
 
 @bp.get("/")
@@ -55,13 +62,25 @@ def config(subpath: str = "") -> str:
         payload = client.get_json(to_api_path(segments))
 
     children: list[str] = sorted(payload) if isinstance(payload, dict) else []
+    document, truncated = _pretty(payload, limit=get_settings().max_render_chars)
     return render_template(
         "config.html",
         segments=segments,
         crumbs=breadcrumbs(segments),
         children=children,
-        document=_pretty(payload),
+        document=document,
+        truncated=truncated,
     )
+
+
+@bp.get("/healthz")
+def healthz() -> tuple[str, int, dict[str, str]]:
+    """Liveness probe for a reverse proxy.
+
+    Deliberately does not touch the control socket: a unitd outage should be
+    visible on the pages, not remove this interface from the proxy's pool.
+    """
+    return "ok\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
 
 @bp.get("/certificates")

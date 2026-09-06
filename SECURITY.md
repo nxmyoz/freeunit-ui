@@ -15,14 +15,22 @@ This project therefore assumes:
    whose effective UID is neither root nor the user unitd runs as, so this process necessarily
    runs as one of them. Compromise of this process is compromise of unitd.
 3. **Only trusted operators reach it.** There is no multi-user model, no per-user permissions
-   and no audit log in this release.
+   and no audit log. With writes enabled, anyone who reaches this interface can reconfigure
+   FreeUnit, which is equivalent to code execution on the host.
 
 If you cannot satisfy points 1 and 3, do not deploy this.
 
 ## Design decisions that follow from that
 
-- The client issues `GET` requests only. Write support is absent from the code rather than
-  disabled by a flag.
+- Writes are off by default. With `FREEUNIT_UI_ENABLE_WRITES` unset, the mutating routes are
+  never registered, so there is no endpoint to reach.
+- The read path uses `UnitClient`, which has no write method at all. Writing needs
+  `UnitWriteClient`, which only the write views construct, so a read view cannot be tricked into
+  writing even when the application is configured to allow changes.
+- Enabling writes requires an explicit `FREEUNIT_UI_SECRET_KEY`; the application refuses to start
+  otherwise. Write forms carry a CSRF token in a `SameSite=Strict`, `HttpOnly` session cookie.
+- Changes are refused if the subtree moved since the form was built, and the whole configuration
+  is snapshotted before every change. Snapshots are `0600` in a `0700` directory.
 - No JavaScript is served, which lets the Content-Security-Policy be `default-src 'none'` with
   no `script-src` allowance at all.
 - No session cookie and no secret key, because there is no session state.

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set active = 'config' %}
+{% block title %}Edit configuration{% endblock %}
+{% block content %}
+<h1>Edit configuration</h1>
+<nav aria-label="Breadcrumb" class="crumbs">
+  <ol>
+    <li><a href="{{ url_for('web.config') }}">config</a></li>
+    {% for label, target in crumbs %}
+      <li><a href="{{ url_for('web.config', subpath=target) }}">{{ label }}</a></li>
+    {% endfor %}
+  </ol>
+</nav>
+
+{% if error %}
+<p class="detail bad-box" role="alert">{{ error }}</p>
+{% endif %}
+
+<form method="post" action="{{ url_for('writes.apply', subpath=subpath) if subpath else url_for('writes.apply') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="baseline" value="{{ baseline }}">
+  <label for="document">JSON replacing this subtree</label>
+  <textarea id="document" name="document" rows="24" spellcheck="false"
+            aria-describedby="apply-note">{{ document }}</textarea>
+  <p id="apply-note" class="hint">
+    The current configuration is saved as a snapshot before this is applied. If the
+    configuration changed since this form was opened, the change is refused rather
+    than overwriting someone else's edit.
+  </p>
+  <div class="actions">
+    <button type="submit">Apply</button>
+    <a class="button-secondary" href="{{ url_for('web.config', subpath=subpath) if subpath else url_for('web.config') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

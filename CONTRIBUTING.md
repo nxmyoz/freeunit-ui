@@ -9,16 +9,22 @@ not negotiable in review:
 
 1. **No JavaScript.** The Content-Security-Policy forbids scripts entirely. Adding one inline
    handler silently weakens the whole policy.
-2. **No write paths without a design discussion first.** Please open an issue before implementing
-   anything that issues a non-`GET` request to the control API.
+2. **Write paths keep their rails.** Anything issuing a non-`GET` request must go through
+   `UnitWriteClient`, be registered only when `enable_writes` is set, verify the CSRF token,
+   check the baseline digest, and snapshot before applying. Do not add a mutating route that
+   skips one of those, and do not put write methods on `UnitClient`.
 
 ## Development setup
 
 ```console
 $ python -m venv .venv && . .venv/bin/activate
 $ pip install -e '.[dev]'
+$ pre-commit install && pre-commit install --hook-type pre-push
 $ pytest
 ```
+
+The hooks run formatting, linting and type checking on every commit, and the
+test suite on push.
 
 ## Before opening a pull request
 

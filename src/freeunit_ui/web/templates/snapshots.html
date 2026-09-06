@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set active = 'snapshots' %}
+{% block title %}Snapshots{% endblock %}
+{% block content %}
+<h1>Snapshots</h1>
+<p class="hint">Taken automatically before every change. Restoring replaces the entire configuration, and snapshots the current one first.</p>
+{% if snapshots %}
+<div class="scroller">
+<table>
+  <thead><tr><th scope="col">Taken</th><th scope="col">Name</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+  <tbody>
+  {% for snap in snapshots %}
+    <tr>
+      <th scope="row">{{ snap.taken_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</th>
+      <td><code>{{ snap.name }}</code></td>
+      <td>
+        <form method="post" action="{{ url_for('writes.restore', name=snap.name) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">Restore</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">No snapshots yet. One is taken before the first change.</p>
+{% endif %}
+{% endblock %}

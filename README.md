@@ -8,7 +8,7 @@ excellent to automate and awkward to inspect. Every "nginx GUI" project targets 
 config files and none of them speak this API. FreeUnit UI reads it directly and renders it:
 runtime status, the configuration tree, and certificate expiry.
 
-**This release is read-only.** It issues nothing but `GET` requests.
+**It is read-only by default.** Configuration editing exists but must be turned on deliberately, and brings snapshots, conflict detection and CSRF protection with it.
 
 ## Read this before you install it
 
@@ -26,8 +26,9 @@ Consequently:
   or the user unitd runs as, so this process must run as one of them. A compromise of this
   interface is therefore a compromise of unitd. Treat it as privileged software.
 
-Being read-only is a deliberate part of that posture: an interface that cannot write cannot be
-tricked into writing.
+Read-only is the default for that reason. When writes are off, the mutating routes are not
+registered at all — there is no endpoint to reach rather than an endpoint that declines — and the
+read path uses a client class that has no write method on it.
 
 ## Requirements
 
@@ -63,18 +64,46 @@ Every setting is an environment variable prefixed `FREEUNIT_UI_`.
 | `FREEUNIT_UI_PORT` | `8099` | Development server port |
 | `FREEUNIT_UI_TIMEOUT` | `10.0` | Control API request timeout, seconds |
 | `FREEUNIT_UI_CERT_EXPIRY_WARNING_DAYS` | `30` | Highlight certificates expiring within this window |
+| `FREEUNIT_UI_MAX_RENDER_CHARS` | `512000` | Truncate a rendered configuration document beyond this size |
+| `FREEUNIT_UI_ENABLE_WRITES` | `false` | Allow configuration changes. Read the section below first |
+| `FREEUNIT_UI_SECRET_KEY` | — | Session signing key. Required when writes are enabled |
+| `FREEUNIT_UI_SESSION_COOKIE_SECURE` | `true` | Mark the session cookie Secure; turn off only for plain-HTTP loopback testing |
+| `FREEUNIT_UI_SNAPSHOT_DIR` | `/var/lib/freeunit-ui/snapshots` | Where configuration is saved before each change |
+| `FREEUNIT_UI_SNAPSHOT_KEEP` | `50` | Snapshots retained before pruning |
 
 Distributions differ on the socket path: Gentoo's `www-servers/freeunit` uses
 `/run/freeunit.sock`, upstream packages commonly use `/var/run/control.unit.sock`.
 
+## Enabling configuration editing
+
+```console
+$ export FREEUNIT_UI_ENABLE_WRITES=true
+$ export FREEUNIT_UI_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+```
+
+The interface refuses to start with writes enabled and no key, rather than generating one — a
+generated key would appear to work and then silently break CSRF protection across workers and
+restarts.
+
+With writes on you get an **Edit** action on any configuration subtree and a **Snapshots** page.
+Every change goes through the same sequence:
+
+1. the CSRF token is checked,
+2. the subtree is re-read and compared with what the form was built from, so two operators cannot
+   silently overwrite each other — the control API offers no `ETag`,
+3. the whole configuration is snapshotted, because the API has no undo,
+4. the change is applied, and if unitd refuses it the error page shows the JSON Pointer and typo
+   suggestion it reported.
+
+Snapshots are written `0600` in a `0700` directory and contain the complete configuration.
+Restoring one snapshots the current state first, so a restore is itself reversible.
+
 ## Scope
 
-In scope: reading and presenting what the control API exposes, and making expiry, misconfiguration
-and runtime health legible.
+In scope: reading and presenting what the control API exposes, making expiry, misconfiguration
+and runtime health legible, and editing configuration safely for operators who opt in.
 
-Out of scope: being a PaaS, deploying applications, managing the host, or wrapping
-`unitctl`. Guarded configuration editing with snapshots and rollback is planned — see
-[docs/roadmap.md](docs/roadmap.md) — but it will stay opt-in and auditable.
+Out of scope: being a PaaS, deploying applications, managing the host, or wrapping `unitctl`.
 
 ## Documentation
 

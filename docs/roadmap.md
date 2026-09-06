@@ -2,9 +2,10 @@
 
 Ordered by increasing blast radius. Nothing here is committed to a date.
 
-## Now: read-only (0.1)
+## Shipped
 
-Status, configuration browsing, certificate expiry.
+- 0.1: status, configuration browsing, certificate expiry. Read-only.
+- 0.2: opt-in configuration editing, with snapshots, conflict detection and CSRF protection.
 
 ## Next: making the read-only view more useful
 
@@ -12,23 +13,20 @@ Status, configuration browsing, certificate expiry.
 - Diff between the running configuration and a saved snapshot
 - Surface access log configuration and per-listener TLS settings more legibly
 
-## Later: guarded editing
+## Next, on the write path
 
-Writes are the point at which this becomes dangerous, so they arrive with their safety rails, not
-before them:
+The rails that shipped cover snapshots, conflict detection and CSRF. Still missing:
 
-1. **Snapshots first.** Store `GET /config` before every change, with one-click restore. The
-   control API has no versioning of its own; this has to exist before any write path does.
-2. **Optimistic locking.** The API exposes no `ETag`, so two operators editing concurrently will
-   silently clobber each other. Hash the document on load and refuse to apply against a changed
-   server state.
-3. **Validation before apply.** There is no dry-run endpoint. Client-side validation against the
-   OpenAPI schema, then apply, then verify — with rollback on failure.
-4. **Narrow scope.** Listeners and routes first. Applications last, since `executable` and `user`
-   are the members that make this a code execution interface.
+1. **Validation before apply.** There is no dry-run endpoint, so a rejected document is only
+   caught after it is sent. Validating client-side against the OpenAPI schema would catch typos
+   before they reach unitd.
+2. **Automatic rollback.** A change that unitd accepts but that breaks the service is not undone
+   automatically; the snapshot has to be restored by hand.
+3. **An audit trail.** Snapshots record what the configuration was, not who changed it or why.
+4. **Structured editing.** Editing raw JSON in a textarea is honest but unhelpful for listeners
+   and routes, which have a small, well known shape.
 
-Editing will stay opt-in via configuration, and the read-only deployment will remain supported and
-documented as the safe default.
+Read-only remains the default and the documented safe deployment.
 
 ## Explicitly not planned
 

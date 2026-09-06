@@ -15,6 +15,7 @@
       <li><a href="{{ url_for('web.dashboard') }}" {% if active == 'dashboard' %}aria-current="page"{% endif %}>Overview</a></li>
       <li><a href="{{ url_for('web.config') }}" {% if active == 'config' %}aria-current="page"{% endif %}>Configuration</a></li>
       <li><a href="{{ url_for('web.certificates') }}" {% if active == 'certificates' %}aria-current="page"{% endif %}>Certificates</a></li>
+      {% if writes_enabled %}<li><a href="{{ url_for('writes.snapshots') }}" {% if active == 'snapshots' %}aria-current="page"{% endif %}>Snapshots</a></li>{% endif %}
     </ul>
   </nav>
 </header>
@@ -22,7 +23,7 @@
 {% block content %}{% endblock %}
 </main>
 <footer class="site">
-  <p>Read-only interface. Configuration changes must be made through the control API.</p>
+  <p>{% if writes_enabled %}Changes are snapshotted before they are applied.{% else %}Read-only interface. Configuration changes must be made through the control API.{% endif %}</p>
 </footer>
 </body>
 </html>

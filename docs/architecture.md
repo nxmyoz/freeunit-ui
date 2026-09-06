@@ -13,8 +13,11 @@ freeunit_ui/
     client.py      read-only request methods and error mapping
     models.py      typed views of /status and /certificates
     errors.py      exception hierarchy
+  snapshots.py     configuration snapshots, the undo the control API lacks
   web/             HTTP layer - knows nothing about sockets
-    views.py       endpoints
+    views.py       read endpoints
+    writes.py      mutating endpoints, registered only when writes are enabled
+    csrf.py        token issue and validation for the write forms
     paths.py       validation of user supplied config paths
     templates/, static/
 ```
@@ -50,6 +53,23 @@ Control API failures become exceptions, and Flask error handlers turn those into
 FreeUnit 1.36.1 a rejected configuration carries an RFC 6901 JSON Pointer in `location.path` and
 sometimes a `suggestion` for a near-miss member name; `UnitAPIError` keeps both, and the error
 page shows them. Older servers simply omit them and the page degrades to the message alone.
+
+## Why writes are a separate client class
+
+`UnitClient` has no write method. `UnitWriteClient` subclasses it and adds `put_json` and
+`delete_path`, and only the write views ever construct one. So a read view holding a client has
+nothing to call, by construction rather than by discipline — which is what makes "read-only by
+default" a property of the code and not just of a flag.
+
+`create_app` takes the read and write factories separately for the same reason: it is not possible
+to accidentally hand the read path something that can write.
+
+## URL namespaces
+
+Configuration members are named by the operator, so an action word must never be a path segment
+inside a configuration path — an application named `edit` would otherwise be unreachable. Editing
+lives under `/edit/`, with the same URL serving the form (GET) and receiving the change (POST), and
+snapshots sit at `/snapshots` rather than under `/edit`.
 
 ## Why there is no JavaScript
 

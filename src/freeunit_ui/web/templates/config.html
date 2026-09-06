@@ -21,6 +21,15 @@
 </ul>
 {% endif %}
 
+{% if writes_enabled %}
+<p class="actions">
+  <a class="button-secondary" href="{{ url_for('writes.edit', subpath=(segments | join('/'))) if segments else url_for('writes.edit') }}">Edit this subtree</a>
+</p>
+{% endif %}
+
 <h2>Document</h2>
+{% if truncated %}
+<p class="detail bad-box" role="status">This document is too large to display in full and has been truncated. Browse into its members above, or read it with <code>unitctl</code>.</p>
+{% endif %}
 <pre class="doc"><code>{{ document }}</code></pre>
 {% endblock %}

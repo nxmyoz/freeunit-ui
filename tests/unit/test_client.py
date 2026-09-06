@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from freeunit_ui.unit import UnitAPIError, UnitClient, UnitConnectionError
+from freeunit_ui.unit import UnitAPIError, UnitClient, UnitConnectionError, UnitWriteClient
 from freeunit_ui.unit.transport import build_client, iter_socket_candidates
 from tests.conftest import DEFAULT_ROUTES, make_client, make_handler
 
@@ -125,3 +125,58 @@ def test_connect_builds_a_working_client_object() -> None:
             client.get_status()
     finally:
         client.close()
+
+
+def test_write_client_puts_and_deletes() -> None:
+    seen: list[tuple[str, str, bytes]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.path, request.content))
+        return httpx.Response(200, json={"success": "Reconfiguration done."})
+
+    client = UnitWriteClient(
+        httpx.Client(transport=httpx.MockTransport(handler), base_url="http://unit")
+    )
+    with client:
+        client.put_json("/config/listeners", {"*:80": {}})
+        client.delete_path("/config/listeners/*:80")
+
+    assert seen[0][:2] == ("PUT", "/config/listeners")
+    assert b'"*:80"' in seen[0][2]
+    assert seen[1][:2] == ("DELETE", "/config/listeners/*:80")
+    assert seen[1][2] == b""
+
+
+def test_write_rejection_is_mapped_to_an_api_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"detail": "Invalid.", "location": {"path": "/x"}})
+
+    client = UnitWriteClient(
+        httpx.Client(transport=httpx.MockTransport(handler), base_url="http://unit")
+    )
+    with client, pytest.raises(UnitAPIError) as excinfo:
+        client.put_json("/config", {})
+    assert excinfo.value.location == "/x"
+
+
+def test_write_rejection_with_a_non_json_body() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    client = UnitWriteClient(
+        httpx.Client(transport=httpx.MockTransport(handler), base_url="http://unit")
+    )
+    with client, pytest.raises(UnitAPIError) as excinfo:
+        client.delete_path("/config/x")
+    assert excinfo.value.status_code == 500
+
+
+def test_write_connection_failure_is_wrapped() -> None:
+    def explode(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    client = UnitWriteClient(
+        httpx.Client(transport=httpx.MockTransport(explode), base_url="http://unit")
+    )
+    with client, pytest.raises(UnitConnectionError):
+        client.put_json("/config", {})

@@ -1,13 +1,20 @@
 """Runtime configuration, read from the environment.
 
 Every setting is prefixed ``FREEUNIT_UI_``. Defaults are deliberately the safe
-ones: loopback only, and the socket path used by the Gentoo package.
+ones: loopback only, writes disabled, and the socket path used by the Gentoo
+package.
 """
 
 from __future__ import annotations
 
-from pydantic import Field
+from pathlib import Path
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ConfigurationError(RuntimeError):
+    """The interface was asked to start in an unsafe or impossible configuration."""
 
 
 class Settings(BaseSettings):
@@ -34,3 +41,62 @@ class Settings(BaseSettings):
         ge=0,
         description="Highlight certificates expiring within this many days.",
     )
+
+    max_render_chars: int = Field(
+        default=512_000,
+        ge=1_000,
+        description="Truncate a rendered configuration document beyond this many characters.",
+    )
+
+    enable_writes: bool = Field(
+        default=False,
+        description=(
+            "Allow changing the FreeUnit configuration. Off by default: writing "
+            "configuration is equivalent to root, because a configuration document "
+            "can define an application with an arbitrary executable and user. When "
+            "off, no write endpoint is registered at all."
+        ),
+    )
+    secret_key: str = Field(
+        default="",
+        description=(
+            "Signing key for the session cookie that carries the CSRF token. "
+            "Required when writes are enabled. Must be stable across workers and "
+            "restarts, so it is never generated automatically."
+        ),
+    )
+    snapshot_dir: Path = Field(
+        default=Path("/var/lib/freeunit-ui/snapshots"),
+        description=(
+            "Where the configuration is saved before every change. Snapshots "
+            "contain the complete configuration and are written with mode 0600."
+        ),
+    )
+    session_cookie_secure: bool = Field(
+        default=True,
+        description=(
+            "Mark the session cookie Secure. Correct behind a TLS-terminating "
+            "proxy, which is the supported deployment; turn it off only to test "
+            "writes over plain HTTP on loopback."
+        ),
+    )
+    snapshot_keep: int = Field(
+        default=50, ge=1, description="Number of snapshots to retain before pruning."
+    )
+
+    @model_validator(mode="after")
+    def _writes_require_a_secret(self) -> Settings:
+        """Refuse to enable writes without a stable signing key.
+
+        Generating one automatically would appear to work and then silently break
+        CSRF protection across workers and restarts, which is worse than failing
+        to start.
+        """
+        if self.enable_writes and len(self.secret_key) < 32:
+            msg = (
+                "FREEUNIT_UI_ENABLE_WRITES requires FREEUNIT_UI_SECRET_KEY to be set "
+                "to at least 32 characters. Generate one with: "
+                "python -c 'import secrets; print(secrets.token_urlsafe(48))'"
+            )
+            raise ConfigurationError(msg)
+        return self

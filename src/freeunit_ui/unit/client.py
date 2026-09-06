@@ -1,9 +1,10 @@
-"""A read-only client for the FreeUnit control API.
+"""Clients for the FreeUnit control API.
 
-Only GET requests are implemented. Configuration writes are a privileged,
-destructive operation and are intentionally absent from this release rather
-than merely hidden behind a flag: an interface that cannot write cannot be
-tricked into writing.
+``UnitClient`` can only read: it has no method that issues anything but a GET.
+Writing is a separate subclass, so the read path cannot be tricked into writing
+even when the application is configured to allow changes. Only the write views
+ever construct a ``UnitWriteClient``, and those views are not registered at all
+unless writes are enabled.
 """
 
 from __future__ import annotations
@@ -98,3 +99,64 @@ class UnitClient:
             for name, bundle in payload.items()
             if isinstance(bundle, dict)
         }
+
+
+class UnitWriteClient(UnitClient):
+    """Read-write access to a FreeUnit control socket.
+
+    Constructed only when ``enable_writes`` is set. Keeping these methods off
+    ``UnitClient`` means a read view holding a client has no write method to
+    call, by construction rather than by discipline.
+    """
+
+    def put_json(self, path: str, payload: Any) -> Any:
+        """Replace the value at a control API path.
+
+        Args:
+            path: Absolute API path, such as ``/config/listeners``.
+            payload: JSON-serialisable replacement value.
+
+        Returns:
+            The decoded success response from unitd.
+
+        Raises:
+            UnitConnectionError: The socket could not be reached.
+            UnitAPIError: unitd rejected the document. For FreeUnit 1.36.1 and
+                newer the error carries a JSON Pointer to the offending member.
+        """
+        return self._send("PUT", path, payload)
+
+    def delete_path(self, path: str) -> Any:
+        """Delete the value at a control API path.
+
+        Args:
+            path: Absolute API path to remove.
+
+        Returns:
+            The decoded success response from unitd.
+
+        Raises:
+            UnitConnectionError: The socket could not be reached.
+            UnitAPIError: unitd refused the deletion.
+        """
+        return self._send("DELETE", path, None)
+
+    def _send(self, method: str, path: str, payload: Any) -> Any:
+        """Issue a mutating request and map failures onto the exception types."""
+        try:
+            if payload is None:
+                response = self._http.request(method, path)
+            else:
+                response = self._http.request(method, path, json=payload)
+        except httpx.HTTPError as exc:
+            msg = f"Cannot reach the FreeUnit control API: {exc}"
+            raise UnitConnectionError(msg) from exc
+
+        if response.is_success:
+            return response.json()
+
+        try:
+            body = response.json()
+        except ValueError:
+            body = response.text
+        raise UnitAPIError.from_payload(response.status_code, body)

@@ -210,3 +210,49 @@ pre.doc {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Write forms — only reachable when writes are enabled. */
+
+label { display: block; font-weight: 600; margin-bottom: 0.4rem; }
+
+textarea {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+
+button, .button-secondary {
+  font: inherit;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+}
+button { background: var(--accent); color: var(--surface); font-weight: 600; }
+button:hover { filter: brightness(1.08); }
+.button-secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+.button-secondary:hover { border-color: var(--accent); }
+
+td form { margin: 0; }
+
+.bad-box {
+  background: var(--bad-bg);
+  color: var(--bad-text);
+  border: 1px solid var(--bad-text);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}

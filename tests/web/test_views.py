@@ -135,3 +135,25 @@ def test_hostile_configuration_values_cannot_inject_markup(routes: dict[str, Any
     assert "<script>alert(2)</script>" not in body
     assert "onerror=alert(1)>" not in body
     assert "&lt;script&gt;" in body
+
+
+def test_healthz_does_not_touch_the_control_socket() -> None:
+    # A unitd outage must not remove this interface from a proxy's pool.
+    def explode(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    app = create_app(Settings(), client_factory=lambda: make_client(explode))
+    with app.test_client() as client:
+        response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.get_data(as_text=True) == "ok\n"
+
+
+def test_oversized_document_is_truncated(routes: dict[str, Any]) -> None:
+    routes["/config"] = {"blob": "x" * 5000}
+    app = create_app(
+        Settings(max_render_chars=1000), client_factory=lambda: make_client(make_handler(routes))
+    )
+    with app.test_client() as client:
+        body = client.get("/config").get_data(as_text=True)
+    assert "truncated" in body
