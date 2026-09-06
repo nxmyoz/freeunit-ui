@@ -1,6 +1,31 @@
 {% extends "base.html" %}
 {% set active = 'config' %}
-{% block title %}Edit configuration{% endblock %}
+{% block title %}Edit configuration{% if info %}
+<section class="reference">
+  <h2>Members here</h2>
+  {% if info.description %}<p class="detail">{{ info.description }}</p>{% endif %}
+  <div class="scroller">
+  <table>
+    <thead><tr><th scope="col">Member</th><th scope="col">Type</th><th scope="col">Meaning</th></tr></thead>
+    <tbody>
+    {% for m in info.members %}
+      <tr>
+        <th scope="row"><code>{{ m.name }}</code>{% if m.required %} <span class="tag">required</span>{% endif %}</th>
+        <td>{{ m.type_name or '—' }}</td>
+        <td>
+          {{ m.description }}
+          {%- if m.default is not none %} <span class="hint">Default: <code>{{ m.default }}</code>.</span>{% endif %}
+          {%- if m.enum %} <span class="hint">One of: {% for e in m.enum %}<code>{{ e }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="hint">From the specification bundled with this interface, FreeUnit {{ spec_version }}. Your server decides what is actually valid.</p>
+</section>
+{% endif %}
+{% endblock %}
 {% block content %}
 <h1>Edit configuration</h1>
 <nav aria-label="Breadcrumb" class="crumbs">
@@ -11,6 +36,19 @@
     {% endfor %}
   </ol>
 </nav>
+
+{% if absent %}
+<p class="detail" role="status">Nothing is configured at this path yet. Applying a document here creates it.</p>
+{% endif %}
+
+{% if scaffolds %}
+<h2>Start from</h2>
+<ul class="scaffolds">
+  {% for sc in scaffolds %}
+  <li><a href="{{ url_for('writes.edit', subpath=subpath, template=sc.key) if subpath else url_for('writes.edit', template=sc.key) }}" title="{{ sc.summary }}">{{ sc.label }}</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
 
 {% if error %}
 <p class="detail bad-box" role="alert">{{ error }}</p>

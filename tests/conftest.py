@@ -76,6 +76,8 @@ DEFAULT_ROUTES: dict[str, Any] = {
     "/status": STATUS_PAYLOAD,
     "/config": CONFIG_PAYLOAD,
     "/config/listeners": CONFIG_PAYLOAD["listeners"],
+    "/config/applications": CONFIG_PAYLOAD["applications"],
+    "/config/applications/blog": CONFIG_PAYLOAD["applications"]["blog"],
     "/certificates": CERTIFICATES_PAYLOAD,
 }
 

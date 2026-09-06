@@ -32,6 +32,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `tools/demo.py`, which runs the interface against a fake control API so it can be looked at
   and worked on without a FreeUnit instance.
 
+- Configuration guidance from FreeUnit's OpenAPI specification, vendored into the package:
+  member descriptions, required members, defaults and permitted values while browsing, resolved
+  against the right branch for an application's `type`.
+- Scaffolds for new applications and listeners, offered when editing a path that does not exist
+  yet, which now creates it rather than failing to load.
+- `tools/vendor_spec.py` to re-vendor the specification on a FreeUnit bump.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

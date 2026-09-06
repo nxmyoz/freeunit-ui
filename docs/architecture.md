@@ -64,6 +64,24 @@ default" a property of the code and not just of a flag.
 `create_app` takes the read and write factories separately for the same reason: it is not possible
 to accidentally hand the read path something that can write.
 
+## The bundled specification
+
+`schema/` holds FreeUnit's OpenAPI specification, vendored as JSON so nothing needs a YAML
+dependency at runtime, plus the release it came from. It answers two questions — what does this
+member mean, and what does a valid starting point look like — and deliberately does not answer a
+third, whether a document is valid.
+
+That restraint is forced by drift: unitd does not serve its own specification, so this copy is
+pinned to one release while the server it talks to is not. A bundled schema that confidently
+refused something a newer server accepts would be worse than no schema at all. So unknown members
+are reported, never removed, and nothing here can block an apply — the server's rejection, with its
+JSON Pointer, remains the real answer.
+
+Scaffolds are written by hand rather than generated, because a document assembled from types alone
+is valid and useless. They are checked against the schema by the test suite instead: every scaffold
+must carry every member its schema marks required, so a FreeUnit release that adds one fails the
+tests rather than silently producing documents the server rejects.
+
 ## URL namespaces
 
 Configuration members are named by the operator, so an action word must never be a path segment

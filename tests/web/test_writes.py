@@ -252,3 +252,57 @@ def test_snapshots_page_lists_them(writer: FlaskClient, write_app: Flask) -> Non
 def test_session_cookie_is_hardened(write_app: Flask) -> None:
     assert write_app.config["SESSION_COOKIE_HTTPONLY"] is True
     assert write_app.config["SESSION_COOKIE_SAMESITE"] == "Strict"
+
+
+# --- configuration guidance ------------------------------------------------
+
+
+def test_browsing_shows_what_the_members_mean(web: FlaskClient) -> None:
+    body = web.get("/config/applications/blog").get_data(as_text=True)
+    assert "What this is" in body
+    assert "module" in body
+    assert "required" in body
+
+
+def test_guidance_follows_the_application_type(web: FlaskClient) -> None:
+    body = web.get("/config/applications/blog").get_data(as_text=True)
+    # the python branch, not php or ruby
+    assert "module name" in body
+    assert "Document root" not in body
+
+
+def test_editing_an_absent_member_offers_scaffolds(writer: FlaskClient) -> None:
+    body = writer.get("/edit/applications/brand-new").get_data(as_text=True)
+    assert "Nothing is configured at this path yet" in body
+    assert "Python application" in body
+
+
+def test_a_scaffold_prefills_the_editor(writer: FlaskClient) -> None:
+    body = writer.get("/edit/applications/brand-new?template=python-application").get_data(
+        as_text=True
+    )
+    assert "&#34;module&#34;" in body
+    assert "&#34;callable&#34;" in body
+
+
+def test_an_unknown_template_is_ignored(writer: FlaskClient) -> None:
+    assert writer.get("/edit/applications/x?template=nope").status_code == 200
+
+
+def test_creating_an_absent_member_applies(writer: FlaskClient, recorder: Recorder) -> None:
+    from freeunit_ui.web.writes import baseline_digest
+
+    token = _token(writer, "/edit/applications/brand-new")
+    response = writer.post(
+        "/edit/applications/brand-new",
+        data={
+            "csrf_token": token,
+            # nothing is there yet, so the baseline is the digest of absence
+            "baseline": baseline_digest(None),
+            "document": '{"type": "python 3", "module": "new.wsgi"}',
+        },
+    )
+    assert response.status_code == 302
+    assert recorder.writes == [
+        ("PUT", "/config/applications/brand-new", {"type": "python 3", "module": "new.wsgi"})
+    ]

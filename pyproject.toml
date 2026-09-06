@@ -38,7 +38,7 @@ freeunit-ui = "freeunit_ui.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/freeunit_ui"]
-artifacts = ["src/freeunit_ui/py.typed"]
+artifacts = ["src/freeunit_ui/py.typed", "src/freeunit_ui/schema/*.json", "src/freeunit_ui/schema/VERSION"]
 
 [tool.ruff]
 line-length = 100
@@ -86,6 +86,11 @@ files = ["src", "tests", "tools"]
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# PyYAML is only used by the vendoring script, which is not shipped.
+module = "yaml"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,6 +6,7 @@ Ordered by increasing blast radius. Nothing here is committed to a date.
 
 - 0.1: status, configuration browsing, certificate expiry. Read-only.
 - 0.2: opt-in configuration editing, with snapshots, conflict detection and CSRF protection.
+- 0.3: configuration guidance from the bundled specification, and scaffolds for new objects.
 
 ## Next: making the read-only view more useful
 
@@ -17,9 +18,9 @@ Ordered by increasing blast radius. Nothing here is committed to a date.
 
 The rails that shipped cover snapshots, conflict detection and CSRF. Still missing:
 
-1. **Validation before apply.** There is no dry-run endpoint, so a rejected document is only
-   caught after it is sent. Validating client-side against the OpenAPI schema would catch typos
-   before they reach unitd.
+1. **Advisory validation before apply.** The schema is now bundled, so required members and
+   unknown names could be checked at the form. It must warn rather than block, for the drift
+   reason above.
 2. **Automatic rollback.** A change that unitd accepts but that breaks the service is not undone
    automatically; the snapshot has to be restored by hand.
 3. **An audit trail.** Snapshots record what the configuration was, not who changed it or why.

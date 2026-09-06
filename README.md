@@ -89,6 +89,20 @@ Every setting is an environment variable prefixed `FREEUNIT_UI_`.
 Distributions differ on the socket path: Gentoo's `www-servers/freeunit` uses
 `/run/freeunit.sock`, upstream packages commonly use `/var/run/control.unit.sock`.
 
+## Configuration guidance
+
+FreeUnit publishes an OpenAPI specification describing its configuration, and a copy is bundled
+here. Browsing the configuration shows what each member means, which are required, their defaults
+and their permitted values — chosen for the right application type, since a Python application and
+a PHP one have different shapes. Creating a listener or an application offers a starting point with
+the required members already present.
+
+It is **guidance, never a gate**. unitd does not serve its own specification, so the bundled copy
+is pinned to one release and will drift from your server: a newer FreeUnit will accept members it
+has never heard of. Nothing here refuses a configuration, unknown members are reported rather than
+removed, and your server remains the only authority on what is valid. Re-vendor it on a bump with
+`python tools/vendor_spec.py <version>`.
+
 ## Enabling configuration editing
 
 ```console

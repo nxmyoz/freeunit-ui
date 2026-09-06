@@ -265,3 +265,31 @@ td form { margin: 0; }
   border: 1px solid var(--border);
   border-radius: 999px;
 }
+
+/* Specification reference */
+
+.reference table { font-size: 0.92rem; }
+.reference td .hint { display: inline; }
+
+.tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  vertical-align: middle;
+}
+
+.scaffolds { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.scaffolds a {
+  display: block;
+  padding: 0.45rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.scaffolds a:hover { border-color: var(--accent); }

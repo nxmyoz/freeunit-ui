@@ -8,6 +8,7 @@ from typing import Any
 from flask import Blueprint, render_template
 
 from freeunit_ui.extensions import get_client, get_settings
+from freeunit_ui.schema import SPEC_VERSION, describe
 from freeunit_ui.unit.errors import UnitAPIError, UnitConnectionError, UnitError
 
 from .auth import NotAuthenticatedError
@@ -71,6 +72,8 @@ def config(subpath: str = "") -> str:
         children=children,
         document=document,
         truncated=truncated,
+        info=describe(segments, payload),
+        spec_version=SPEC_VERSION,
     )
 
 

@@ -24,6 +24,9 @@ from flask import Blueprint, redirect, render_template, request, url_for
 from werkzeug.wrappers import Response
 
 from freeunit_ui.extensions import get_client, get_snapshots, get_write_client
+from freeunit_ui.schema import SPEC_VERSION, describe
+from freeunit_ui.schema import scaffolds as scaffold_catalogue
+from freeunit_ui.unit.errors import UnitAPIError
 
 from .auth import current_identity
 from .csrf import FIELD_NAME, CsrfError, issue_token, validate
@@ -52,22 +55,43 @@ def baseline_digest(payload: Any) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _read_or_absent(api_path: str) -> tuple[Any, bool]:
+    """Return the value at ``api_path``, or ``(None, True)`` when it does not exist.
+
+    A path that does not exist yet is how a new listener or application is
+    created, so it is a normal case rather than an error.
+    """
+    try:
+        with get_client() as client:
+            return client.get_json(api_path), False
+    except UnitAPIError as error:
+        if error.status_code == 404:
+            return None, True
+        raise
+
+
 @bp.get("/edit/")
 @bp.get("/edit/<path:subpath>")
 def edit(subpath: str = "") -> str:
     """Show the editing form for a configuration subtree."""
     segments = split_config_path(subpath)
-    with get_client() as client:
-        payload = client.get_json(to_api_path(segments))
+    payload, absent = _read_or_absent(to_api_path(segments))
+
+    chosen = scaffold_catalogue.get(request.args.get("template", ""))
+    document = chosen.as_json() if chosen else json.dumps(payload, indent=2, ensure_ascii=False)
 
     return render_template(
         "edit.html",
         segments=segments,
         crumbs=breadcrumbs(segments),
         subpath="/".join(segments),
-        document=json.dumps(payload, indent=2, ensure_ascii=False),
+        document="" if absent and not chosen else document,
         baseline=baseline_digest(payload),
         csrf_token=issue_token(),
+        absent=absent,
+        scaffolds=scaffold_catalogue.for_path(segments),
+        info=describe(segments, payload),
+        spec_version=SPEC_VERSION,
     )
 
 
@@ -93,12 +117,15 @@ def apply(subpath: str = "") -> Response | tuple[str, int]:
                 baseline=request.form.get("baseline", ""),
                 csrf_token=issue_token(),
                 error=f"That is not valid JSON: {exc}",
+                absent=False,
+                scaffolds=scaffold_catalogue.for_path(segments),
+                info=describe(segments),
+                spec_version=SPEC_VERSION,
             ),
             400,
         )
 
-    with get_client() as reader:
-        current = reader.get_json(api_path)
+    current, _ = _read_or_absent(api_path)
     if baseline_digest(current) != request.form.get("baseline"):
         msg = (
             "The configuration changed while you were editing it. Reload the form "
