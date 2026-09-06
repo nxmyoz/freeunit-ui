@@ -23,11 +23,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - pre-commit hooks: formatting, linting and typing per commit, tests on push, plus private-key
   detection.
 
+- Identity from a reverse proxy via `FREEUNIT_UI_AUTH_HEADER`, shown in the interface and
+  recorded against every snapshot, with `FREEUNIT_UI_REQUIRE_AUTH` to refuse requests that arrive
+  without one.
+- `freeunit_ui.wsgi:application` entry point, and `deploy/` with working FreeUnit and nginx
+  configuration for running the interface under FreeUnit behind nginx.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the
   read path cannot write even when writes are enabled.
 - CI additionally tests Python 3.14.
+- Snapshots keep their metadata in a sibling `.meta.json`, so the snapshot file itself stays a
+  plain configuration document usable with `curl` or `unitctl`.
 
 ## [0.1.0] - 2026-09-06
 

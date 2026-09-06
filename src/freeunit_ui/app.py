@@ -17,6 +17,7 @@ from .settings import Settings
 from .snapshots import SnapshotStore
 from .unit import UnitClient, UnitWriteClient
 from .web import bp as web_bp
+from .web.auth import current_identity, register_auth
 from .web.writes import bp as writes_bp
 
 if TYPE_CHECKING:
@@ -56,10 +57,11 @@ def create_app(
 
     @app.context_processor
     def _template_globals() -> dict[str, object]:
-        """Expose whether write routes exist, so navigation can reflect it."""
-        return {"writes_enabled": resolved.enable_writes}
+        """Expose write availability and the operator's identity to templates."""
+        return {"writes_enabled": resolved.enable_writes, "identity": current_identity()}
 
     register_security_headers(app)
+    register_auth(app)
     app.register_blueprint(web_bp)
 
     if resolved.enable_writes:

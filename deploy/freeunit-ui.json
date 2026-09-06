@@ -1,0 +1,34 @@
+{
+    "listeners": {
+        "unix:/run/freeunit-ui/ui.sock": {
+            "pass": "applications/freeunit-ui"
+        }
+    },
+
+    "applications": {
+        "freeunit-ui": {
+            "type": "python 3",
+
+            "user": "freeunit",
+            "group": "freeunit",
+
+            "home": "/opt/freeunit-ui/.venv",
+            "path": "/opt/freeunit-ui/src",
+            "module": "freeunit_ui.wsgi",
+            "callable": "application",
+
+            "processes": 2,
+            "threads": 2,
+
+            "environment": {
+                "FREEUNIT_UI_CONTROL": "/run/freeunit.sock",
+
+                "FREEUNIT_UI_AUTH_HEADER": "X-Forwarded-User",
+                "FREEUNIT_UI_REQUIRE_AUTH": "true",
+
+                "FREEUNIT_UI_ENABLE_WRITES": "false",
+                "FREEUNIT_UI_SNAPSHOT_DIR": "/var/lib/freeunit-ui/snapshots"
+            }
+        }
+    }
+}

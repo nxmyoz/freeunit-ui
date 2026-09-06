@@ -10,6 +10,7 @@ from flask import Blueprint, render_template
 from freeunit_ui.extensions import get_client, get_settings
 from freeunit_ui.unit.errors import UnitAPIError, UnitConnectionError, UnitError
 
+from .auth import NotAuthenticatedError
 from .paths import InvalidPathError, breadcrumbs, split_config_path, to_api_path
 
 bp = Blueprint("web", __name__)
@@ -97,6 +98,12 @@ def certificates() -> str:
     return render_template(
         "certificates.html", rows=rows, warning_days=settings.cert_expiry_warning_days
     )
+
+
+@bp.app_errorhandler(NotAuthenticatedError)
+def _not_authenticated(error: NotAuthenticatedError) -> tuple[str, int]:
+    """Render a 401 when the proxy asserted no identity."""
+    return render_template("error.html", title="Not authenticated", detail=str(error)), 401
 
 
 @bp.app_errorhandler(InvalidPathError)

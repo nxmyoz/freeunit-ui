@@ -25,6 +25,7 @@ from werkzeug.wrappers import Response
 
 from freeunit_ui.extensions import get_client, get_snapshots, get_write_client
 
+from .auth import current_identity
 from .csrf import FIELD_NAME, CsrfError, issue_token, validate
 from .paths import breadcrumbs, split_config_path, to_api_path
 
@@ -106,7 +107,7 @@ def apply(subpath: str = "") -> Response | tuple[str, int]:
         raise ConflictError(msg)
 
     with get_client() as reader:
-        get_snapshots().save(reader.get_config())
+        get_snapshots().save(reader.get_config(), author=current_identity())
 
     with get_write_client() as writer:
         writer.put_json(api_path, document)
@@ -131,7 +132,7 @@ def restore(name: str) -> Response:
 
     # Snapshot the state we are about to replace, so restoring is itself undoable.
     with get_client() as reader:
-        store.save(reader.get_config())
+        store.save(reader.get_config(), author=current_identity())
 
     with get_write_client() as writer:
         writer.put_json("/config", document)

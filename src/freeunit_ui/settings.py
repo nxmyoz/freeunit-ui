@@ -48,6 +48,24 @@ class Settings(BaseSettings):
         description="Truncate a rendered configuration document beyond this many characters.",
     )
 
+    auth_header: str = Field(
+        default="",
+        description=(
+            "Request header carrying the identity of the authenticated operator, "
+            "set by the reverse proxy, for example X-Forwarded-User. Only safe "
+            "when nothing but the proxy can reach this application: a client that "
+            "can connect directly could otherwise set the header itself."
+        ),
+    )
+    require_auth: bool = Field(
+        default=False,
+        description=(
+            "Refuse every request that arrives without an identity in auth_header. "
+            "Defence in depth: the proxy is still what authenticates, but a "
+            "misconfigured proxy then fails closed instead of open."
+        ),
+    )
+
     enable_writes: bool = Field(
         default=False,
         description=(
@@ -83,6 +101,17 @@ class Settings(BaseSettings):
     snapshot_keep: int = Field(
         default=50, ge=1, description="Number of snapshots to retain before pruning."
     )
+
+    @model_validator(mode="after")
+    def _require_auth_needs_a_header(self) -> Settings:
+        """Refuse a gate that cannot be enforced."""
+        if self.require_auth and not self.auth_header:
+            msg = (
+                "FREEUNIT_UI_REQUIRE_AUTH needs FREEUNIT_UI_AUTH_HEADER to name the "
+                "header the proxy sets, for example X-Forwarded-User."
+            )
+            raise ConfigurationError(msg)
+        return self
 
     @model_validator(mode="after")
     def _writes_require_a_secret(self) -> Settings:

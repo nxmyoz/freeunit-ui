@@ -17,6 +17,7 @@
       <li><a href="{{ url_for('web.certificates') }}" {% if active == 'certificates' %}aria-current="page"{% endif %}>Certificates</a></li>
       {% if writes_enabled %}<li><a href="{{ url_for('writes.snapshots') }}" {% if active == 'snapshots' %}aria-current="page"{% endif %}>Snapshots</a></li>{% endif %}
     </ul>
+    {% if identity %}<span class="identity" title="Asserted by the reverse proxy">{{ identity }}</span>{% endif %}
   </nav>
 </header>
 <main id="main">

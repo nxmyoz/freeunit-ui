@@ -19,8 +19,10 @@ certificates and applications exist.
 
 Consequently:
 
-- **This interface ships no authentication.** Put it behind something that has it — a reverse
-  proxy with client certificates, OIDC, or an SSO forward-auth endpoint.
+- **This interface authenticates nobody.** Put it behind something that does — a reverse proxy
+  with client certificates, OIDC, or an SSO forward-auth endpoint. It can read the identity that
+  proxy asserts, show it, record it against configuration changes, and refuse requests that
+  arrive without one, but the proxy is what decides who gets in.
 - **It binds to `127.0.0.1` by default.** Do not expose it directly to a network.
 - Since FreeUnit 1.36.0 the UNIX control socket only accepts peers whose effective UID is root
   or the user unitd runs as, so this process must run as one of them. A compromise of this
@@ -65,6 +67,8 @@ Every setting is an environment variable prefixed `FREEUNIT_UI_`.
 | `FREEUNIT_UI_TIMEOUT` | `10.0` | Control API request timeout, seconds |
 | `FREEUNIT_UI_CERT_EXPIRY_WARNING_DAYS` | `30` | Highlight certificates expiring within this window |
 | `FREEUNIT_UI_MAX_RENDER_CHARS` | `512000` | Truncate a rendered configuration document beyond this size |
+| `FREEUNIT_UI_AUTH_HEADER` | — | Header the proxy sets with the operator's identity, e.g. `X-Forwarded-User` |
+| `FREEUNIT_UI_REQUIRE_AUTH` | `false` | Refuse requests arriving without that identity |
 | `FREEUNIT_UI_ENABLE_WRITES` | `false` | Allow configuration changes. Read the section below first |
 | `FREEUNIT_UI_SECRET_KEY` | — | Session signing key. Required when writes are enabled |
 | `FREEUNIT_UI_SESSION_COOKIE_SECURE` | `true` | Mark the session cookie Secure; turn off only for plain-HTTP loopback testing |
@@ -104,6 +108,20 @@ In scope: reading and presenting what the control API exposes, making expiry, mi
 and runtime health legible, and editing configuration safely for operators who opt in.
 
 Out of scope: being a PaaS, deploying applications, managing the host, or wrapping `unitctl`.
+
+## Deploying
+
+The supported shape is FreeUnit serving this interface on a UNIX socket, with nginx in front doing
+the authentication:
+
+```
+browser ──mTLS──> nginx ──unix socket──> freeunit-ui (run by FreeUnit) ──> unitd control socket
+```
+
+Working configuration for both sides is in [`deploy/`](deploy/), and
+[docs/deployment.md](docs/deployment.md) walks through it — including why the listener is a UNIX
+socket rather than a port, and the failure mode of letting the server host the interface that
+configures it.
 
 ## Documentation
 
