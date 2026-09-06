@@ -8,6 +8,7 @@ from typing import Any
 from flask import Blueprint, render_template, request
 
 from freeunit_ui.extensions import get_client, get_settings, get_snapshots
+from freeunit_ui.references import analyse
 from freeunit_ui.schema import SPEC_VERSION, describe
 from freeunit_ui.snapshots import SnapshotError
 from freeunit_ui.unit.errors import UnitAPIError, UnitConnectionError, UnitError
@@ -90,6 +91,16 @@ def config(subpath: str = "") -> str:
         outcome=request.args.get("outcome"),
         csrf_token=issue_token() if settings.enable_writes else None,
     )
+
+
+@bp.get("/references")
+def references() -> str:
+    """Show what the configuration points at, and whether it is there."""
+    with get_client() as client:
+        config = client.get_config()
+        certificates = set(client.get_certificates())
+
+    return render_template("references.html", report=analyse(config, certificates))
 
 
 @bp.get("/healthz")

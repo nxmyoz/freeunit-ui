@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% set active = 'references' %}
+{% block title %}References{% endblock %}
+{% block content %}
+<h1>References</h1>
+<p class="detail">What the configuration points at, and whether it is configured.</p>
+
+{% if report.broken %}
+<section class="findings" role="alert">
+  <h2>Pointing at something that is not configured</h2>
+  <ul>
+    {% for r in report.broken %}
+    <li><code>{{ r.source }}</code> → <code>{{ r.target }}</code></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<h2>All references</h2>
+{% if report.references %}
+<div class="scroller">
+<table>
+  <thead><tr><th scope="col">From</th><th scope="col">Kind</th><th scope="col">To</th><th scope="col">Resolves</th></tr></thead>
+  <tbody>
+  {% for r in report.references %}
+    <tr>
+      <th scope="row"><a href="{{ url_for('web.config', subpath=r.source.strip('/').rsplit('/', 1)[0]) }}"><code>{{ r.source }}</code></a></th>
+      <td>{{ r.kind }}</td>
+      <td><code>{{ r.target }}</code></td>
+      <td class="{{ 'bad' if r.resolved is false }}">
+        {%- if r.resolved is none -%}
+          decided per request
+        {%- elif r.resolved -%}
+          yes
+        {%- else -%}
+          not configured
+        {%- endif -%}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">Nothing in this configuration refers to anything else.</p>
+{% endif %}
+
+<h2>Referred to by nothing</h2>
+{% if report.unused_applications or report.unused_certificates %}
+<ul class="members">
+  {% for name in report.unused_applications %}
+  <li><a href="{{ url_for('web.config', subpath='applications/' ~ name) }}">application {{ name }}</a></li>
+  {% endfor %}
+  {% for name in report.unused_certificates %}
+  <li><a href="{{ url_for('web.certificates') }}">certificate {{ name }}</a></li>
+  {% endfor %}
+</ul>
+<p class="hint">Not necessarily wrong — an application may be reached only through a destination built from variables, which is resolved per request.</p>
+{% else %}
+<p class="empty">Everything configured is referred to.</p>
+{% endif %}
+{% endblock %}

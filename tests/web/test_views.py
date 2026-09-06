@@ -157,3 +157,20 @@ def test_oversized_document_is_truncated(routes: dict[str, Any]) -> None:
     with app.test_client() as client:
         body = client.get("/config").get_data(as_text=True)
     assert "truncated" in body
+
+
+def test_references_page_shows_broken_pointers(routes: dict[str, Any]) -> None:
+    routes["/config"] = {
+        "listeners": {"*:80": {"pass": "applications/gone"}},
+        "applications": {"blog": {}},
+    }
+    app = create_app(Settings(), client_factory=lambda: make_client(make_handler(routes)))
+    with app.test_client() as client:
+        body = client.get("/references").get_data(as_text=True)
+    assert "Pointing at something that is not configured" in body
+    assert "applications/gone" in body
+    assert "blog" in body  # referred to by nothing
+
+
+def test_references_page_is_available_without_writes(web: FlaskClient) -> None:
+    assert web.get("/references").status_code == 200
