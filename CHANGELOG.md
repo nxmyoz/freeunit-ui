@@ -23,5 +23,3 @@ Initial release. Read-only throughout.
 - Hardened responses: `default-src 'none'` with no script allowance, `no-store`, and the usual
   framing and sniffing protections.
 
-[Unreleased]: https://github.com/freeunit-ui/freeunit-ui/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/freeunit-ui/freeunit-ui/releases/tag/v0.1.0

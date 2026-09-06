@@ -31,11 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6", "mypy>=1.11"]
 
-[project.urls]
-Homepage = "https://github.com/freeunit-ui/freeunit-ui"
-Source = "https://github.com/freeunit-ui/freeunit-ui"
-Issues = "https://github.com/freeunit-ui/freeunit-ui/issues"
-Changelog = "https://github.com/freeunit-ui/freeunit-ui/blob/main/CHANGELOG.md"
+# [project.urls] is intentionally absent: this is not published yet.
 
 [project.scripts]
 freeunit-ui = "freeunit_ui.__main__:main"

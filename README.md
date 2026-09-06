@@ -39,9 +39,13 @@ tricked into writing.
 ## Quick start
 
 ```console
-$ pip install freeunit-ui
+$ git clone <this repository> && cd freeunit-ui
+$ python -m venv .venv && . .venv/bin/activate
+$ pip install -e .
 $ FREEUNIT_UI_CONTROL=/run/freeunit.sock freeunit-ui
 ```
+
+Not released anywhere yet, so there is no `pip install freeunit-ui`.
 
 Then open <http://127.0.0.1:8099/>.
 
