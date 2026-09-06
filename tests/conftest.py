@@ -28,7 +28,16 @@ STATUS_PAYLOAD: dict[str, Any] = {
 
 CONFIG_PAYLOAD: dict[str, Any] = {
     "listeners": {"*:8080": {"pass": "applications/blog"}},
-    "applications": {"blog": {"type": "python 3", "path": "/srv/blog"}},
+    "applications": {
+        "blog": {
+            "type": "python 3",
+            "path": "/srv/blog",
+            # a nested object and a member the bundled schema does not know:
+            # both must survive a guided-form round trip untouched
+            "processes": {"max": 4, "spare": 1},
+            "invented_later": "keep me",
+        }
+    },
 }
 
 CERTIFICATES_PAYLOAD: dict[str, Any] = {

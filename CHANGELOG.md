@@ -51,6 +51,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A one-click undo on the page you land on after a change, restoring the snapshot taken
   immediately before it.
 
+- A guided editing mode rendering described members as typed inputs, alongside the raw JSON
+  editor, which remains. The form merges into the stored document rather than replacing it, so
+  objects, arrays and members the specification does not describe survive untouched and are named
+  in the interface.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

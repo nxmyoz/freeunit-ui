@@ -89,6 +89,21 @@ Every setting is an environment variable prefixed `FREEUNIT_UI_`.
 Distributions differ on the socket path: Gentoo's `www-servers/freeunit` uses
 `/run/freeunit.sock`, upstream packages commonly use `/var/run/control.unit.sock`.
 
+## Two ways to configure
+
+**Guided** renders the members the specification describes as typed inputs — text, numbers,
+true/false, and a menu where the value must be one of a set. **Edit as JSON** remains, and is how
+you reach everything else. The two modes link to each other from every configuration page.
+
+The guided form **never replaces a document, it merges into it**. Objects, arrays and members the
+bundled specification has never heard of are carried across untouched, and the form names them so
+you can see it is not the whole picture. That is what makes a schema-driven form safe here: a form
+that replaced the document would quietly delete configuration it did not understand, which for a
+format that grows every release is a matter of when, not if.
+
+A blank field removes an optional member. Required members are never removed, so the form cannot
+produce a document it knows to be invalid.
+
 ## Configuration guidance
 
 FreeUnit publishes an OpenAPI specification describing its configuration, and a copy is bundled

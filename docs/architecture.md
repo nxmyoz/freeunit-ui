@@ -92,6 +92,22 @@ is valid and useless. They are checked against the schema by the test suite inst
 must carry every member its schema marks required, so a FreeUnit release that adds one fails the
 tests rather than silently producing documents the server rejects.
 
+## Why a generated form is safe here
+
+The usual objection to generating a form from a schema is that it becomes the only expression of
+the document and silently discards whatever the schema does not cover. For a configuration format
+that gains members every release, that is a guarantee of data loss.
+
+`web/forms.py` avoids it by never replacing a document. It renders the scalar members the
+specification describes, and on submit merges those values into the document as it was found:
+objects, arrays and unrecognised members are copied across untouched and listed in the interface
+so the operator can see the form is partial. The raw JSON editor is how those are reached, and it
+is not going away.
+
+Two consequences fall out of that. A blank field removes an optional member but never a required
+one, so the form cannot construct a document it knows to be invalid. And an untouched round trip
+is a no-op — asserted by the tests, because it is the property the whole design rests on.
+
 ## URL namespaces
 
 Configuration members are named by the operator, so an action word must never be a path segment

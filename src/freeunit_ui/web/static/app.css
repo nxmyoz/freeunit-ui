@@ -341,3 +341,36 @@ input[type="text"] {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+
+/* Editing modes and the guided form */
+
+.modes { display: flex; gap: 0.75rem; margin: 0 0 1.25rem; font-size: 0.9rem; }
+.modes a, .modes span {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  text-decoration: none;
+}
+.modes span[aria-current] { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+
+dl.fields { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: 0.4rem 1.25rem; margin: 0 0 1.25rem; }
+dl.fields dt { padding-top: 0.55rem; }
+dl.fields dd { margin: 0; }
+dl.fields label { font-weight: 600; margin: 0; }
+dl.fields .hint { margin: 0.15rem 0 0.5rem; font-size: 0.85rem; }
+
+select {
+  font: inherit;
+  padding: 0.5rem 0.7rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 12rem;
+}
+input[type="number"] { width: 12rem; }
+
+@media (max-width: 46rem) {
+  dl.fields { grid-template-columns: 1fr; }
+  dl.fields dt { padding-top: 0.75rem; }
+}

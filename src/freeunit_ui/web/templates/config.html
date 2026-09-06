@@ -68,7 +68,8 @@
 
 {% if writes_enabled %}
 <p class="actions">
-  <a class="button-secondary" href="{{ url_for('writes.edit', subpath=(segments | join('/'))) if segments else url_for('writes.edit') }}">Edit this subtree</a>
+  <a class="button-secondary" href="{{ url_for('writes.form', subpath=(segments | join('/'))) if segments else url_for('writes.form') }}">Configure</a>
+  <a class="button-secondary" href="{{ url_for('writes.edit', subpath=(segments | join('/'))) if segments else url_for('writes.edit') }}">Edit as JSON</a>
 </p>
 {% endif %}
 

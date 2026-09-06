@@ -37,6 +37,11 @@
   </ol>
 </nav>
 
+<p class="modes">
+  <a href="{{ url_for('writes.form', subpath=subpath) if subpath else url_for('writes.form') }}">Guided</a>
+  <span aria-current="true">Edit as JSON</span>
+</p>
+
 {% if absent %}
 <p class="detail" role="status">Nothing is configured at this path yet. Applying a document here creates it.</p>
 {% endif %}

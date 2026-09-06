@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% set active = 'config' %}
+{% block title %}Configure{% endblock %}
+{% block content %}
+<h1>Configure</h1>
+<nav aria-label="Breadcrumb" class="crumbs">
+  <ol>
+    <li><a href="{{ url_for('web.config') }}">config</a></li>
+    {% for label, target in crumbs %}
+      <li><a href="{{ url_for('web.config', subpath=target) }}">{{ label }}</a></li>
+    {% endfor %}
+  </ol>
+</nav>
+
+<p class="modes">
+  <span aria-current="true">Guided</span>
+  <a href="{{ url_for('writes.edit', subpath=subpath) if subpath else url_for('writes.edit') }}">Edit as JSON</a>
+</p>
+
+{% if absent %}
+<p class="detail" role="status">Nothing is configured at this path yet. Applying creates it.</p>
+{% endif %}
+
+{% if error %}<p class="detail bad-box" role="alert">{{ error }}</p>{% endif %}
+
+{% if findings %}
+<section class="findings" role="alert">
+  <h2>{% if awaiting_confirmation %}This looks wrong{% else %}Checked{% endif %}</h2>
+  <ul>
+    {% for f in findings %}
+    <li class="{{ 'certain' if f.is_certain else 'uncertain' }}"><code>{{ f.pointer }}</code> — {{ f.message }}</li>
+    {% endfor %}
+  </ul>
+  <p class="hint">Checked against FreeUnit {{ spec_version }} as bundled here. Your server decides; you can apply anyway.</p>
+</section>
+{% endif %}
+
+{% if not model.usable %}
+<p class="empty">The bundled specification does not describe editable members here.
+  <a href="{{ url_for('writes.edit', subpath=subpath) if subpath else url_for('writes.edit') }}">Edit as JSON</a> instead.</p>
+{% else %}
+{% if model.description %}<p class="detail">{{ model.description }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('writes.form_apply', subpath=subpath) if subpath else url_for('writes.form_apply') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="baseline" value="{{ baseline }}">
+
+  <dl class="fields">
+  {% for f in model.fields %}
+    {% set current = overrides.get('member__' ~ f.name, f.value) %}
+    <dt>
+      <label for="f-{{ f.name }}">{{ f.name }}{% if f.required %} <span class="tag">required</span>{% endif %}</label>
+    </dt>
+    <dd>
+      {% if f.kind == 'enum' %}
+        <select id="f-{{ f.name }}" name="member__{{ f.name }}">
+          <option value="">— not set —</option>
+          {% for choice in f.choices %}
+          <option value="{{ choice }}" {% if current.split(' ')[0] == choice %}selected{% endif %}>{{ choice }}</option>
+          {% endfor %}
+        </select>
+      {% elif f.kind == 'boolean' %}
+        <select id="f-{{ f.name }}" name="member__{{ f.name }}">
+          <option value="" {% if current == '' %}selected{% endif %}>— not set —</option>
+          <option value="true" {% if current == 'true' %}selected{% endif %}>true</option>
+          <option value="false" {% if current == 'false' %}selected{% endif %}>false</option>
+        </select>
+      {% elif f.kind in ('integer', 'number') %}
+        <input type="number" id="f-{{ f.name }}" name="member__{{ f.name }}" value="{{ current }}"
+               {% if f.kind == 'number' %}step="any"{% endif %}>
+      {% else %}
+        <input type="text" id="f-{{ f.name }}" name="member__{{ f.name }}" value="{{ current }}">
+      {% endif %}
+      {% if f.description %}<p class="hint">{{ f.description }}{% if f.default is not none %} Default: <code>{{ f.default }}</code>.{% endif %}</p>{% endif %}
+    </dd>
+  {% endfor %}
+  </dl>
+
+  {% if model.preserved %}
+  <p class="hint">Left untouched by this form, because it does not manage objects, arrays or
+  members the bundled specification does not describe:
+  {% for name in model.preserved %}<code>{{ name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+  Use <a href="{{ url_for('writes.edit', subpath=subpath) if subpath else url_for('writes.edit') }}">Edit as JSON</a> to change those.</p>
+  {% endif %}
+
+  <label for="reason">Why (recorded with the snapshot)</label>
+  <input type="text" id="reason" name="reason" maxlength="200" value="{{ reason or '' }}"
+         placeholder="rotating the blog certificate">
+
+  <div class="actions">
+    {% if awaiting_confirmation %}
+      <input type="hidden" name="confirm" value="yes">
+      <button type="submit" name="action" value="apply">Apply anyway</button>
+    {% else %}
+      <button type="submit" name="action" value="apply">Apply</button>
+      <button type="submit" name="action" value="check" class="button-secondary">Check</button>
+    {% endif %}
+    <a class="button-secondary" href="{{ url_for('web.config', subpath=subpath) if subpath else url_for('web.config') }}">Cancel</a>
+  </div>
+  <p class="hint">A blank field removes an optional member. Required members are never removed.</p>
+</form>
+{% endif %}
+{% endblock %}

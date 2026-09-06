@@ -31,6 +31,9 @@ from freeunit_ui.unit.errors import UnitAPIError
 
 from .auth import current_identity
 from .csrf import FIELD_NAME, CsrfError, issue_token, validate
+from .forms import CoercionError
+from .forms import build as build_form
+from .forms import merge as merge_form
 from .paths import breadcrumbs, split_config_path, to_api_path
 
 bp = Blueprint("writes", __name__)
@@ -159,6 +162,13 @@ def apply(subpath: str = "") -> Response | str | tuple[str, int]:
             reason=request.form.get("reason", ""),
         )
 
+    return _commit(segments, api_path, document, baseline, request.form.get("reason", ""))
+
+
+def _commit(
+    segments: list[str], api_path: str, document: Any, baseline: str, reason: str
+) -> Response:
+    """Snapshot, apply, verify and redirect. Shared by both editing modes."""
     current, _ = _read_or_absent(api_path)
     if baseline_digest(current) != baseline:
         msg = (
@@ -169,23 +179,101 @@ def apply(subpath: str = "") -> Response | str | tuple[str, int]:
 
     with get_client() as reader:
         snapshot = get_snapshots().save(
-            reader.get_config(),
-            author=current_identity(),
-            reason=request.form.get("reason", "").strip() or None,
+            reader.get_config(), author=current_identity(), reason=reason.strip() or None
         )
 
     with get_write_client() as writer:
         writer.put_json(api_path, document)
 
-    # unitd accepting a document does not mean it stored what was sent: it may
-    # normalise or drop members. Read it back and say so when it differs, since
-    # the operator is about to walk away believing the change took.
     stored, _ = _read_or_absent(api_path)
     outcome = "applied" if baseline_digest(stored) == baseline_digest(document) else "differs"
-
     return redirect(
         url_for("web.config", subpath="/".join(segments), undo=snapshot.name, outcome=outcome)
     )
+
+
+@bp.get("/form/")
+@bp.get("/form/<path:subpath>")
+def form(subpath: str = "") -> str:
+    """Show the structured editor for the members the specification describes."""
+    segments = split_config_path(subpath)
+    payload, absent = _read_or_absent(to_api_path(segments))
+    return _render_structured(segments, payload, absent=absent)
+
+
+def _render_structured(
+    segments: list[str],
+    payload: Any,
+    *,
+    absent: bool = False,
+    error: str | None = None,
+    findings: list[Any] | None = None,
+    awaiting_confirmation: bool = False,
+    reason: str = "",
+    overrides: dict[str, str] | None = None,
+) -> str:
+    """Render the structured editor in any of its states."""
+    model = build_form(segments, payload)
+    return render_template(
+        "form.html",
+        segments=segments,
+        crumbs=breadcrumbs(segments),
+        subpath="/".join(segments),
+        model=model,
+        overrides=overrides or {},
+        baseline=baseline_digest(payload),
+        csrf_token=issue_token(),
+        absent=absent,
+        error=error,
+        findings=findings or [],
+        awaiting_confirmation=awaiting_confirmation,
+        reason=reason,
+        spec_version=SPEC_VERSION,
+    )
+
+
+@bp.post("/form/")
+@bp.post("/form/<path:subpath>")
+def form_apply(subpath: str = "") -> Response | str | tuple[str, int]:
+    """Merge submitted fields into the stored document and apply."""
+    validate(request.form.get(FIELD_NAME))
+    segments = split_config_path(subpath)
+    api_path = to_api_path(segments)
+    baseline = request.form.get("baseline", "")
+    reason = request.form.get("reason", "")
+    submitted = {key: value for key, value in request.form.items() if key.startswith("member__")}
+
+    payload, absent = _read_or_absent(api_path)
+    model = build_form(segments, payload)
+    try:
+        document = merge_form(model, payload, submitted)
+    except CoercionError as exc:
+        return (
+            _render_structured(
+                segments,
+                payload,
+                absent=absent,
+                error=str(exc),
+                reason=reason,
+                overrides=submitted,
+            ),
+            400,
+        )
+
+    findings = check_document(segments, document)
+    confirmed = request.form.get("confirm") == "yes"
+    if request.form.get("action") == "check" or (findings and not confirmed):
+        return _render_structured(
+            segments,
+            document,
+            absent=absent,
+            findings=findings,
+            awaiting_confirmation=bool(findings),
+            reason=reason,
+            overrides=submitted,
+        )
+
+    return _commit(segments, api_path, document, baseline, reason)
 
 
 @bp.get("/snapshots")

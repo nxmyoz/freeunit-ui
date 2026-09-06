@@ -8,6 +8,8 @@ Ordered by increasing blast radius. Nothing here is committed to a date.
 - 0.2: opt-in configuration editing, with snapshots, conflict detection and CSRF protection.
 - 0.3: configuration guidance from the bundled specification, scaffolds for new objects, and
   advisory checks before applying.
+- 0.4: a change reason, verification after applying, one-click undo, and a guided editing mode
+  that merges rather than replaces.
 
 ## Next: making the read-only view more useful
 
@@ -22,8 +24,8 @@ The rails that shipped cover snapshots, conflict detection and CSRF. Still missi
 1. **Automatic rollback.** A change that unitd accepts but that breaks the service is not undone
    automatically; the snapshot has to be restored by hand.
 2. **A reason for each change.** Snapshots record what changed and who changed it, but not why.
-3. **Structured editing.** Editing raw JSON in a textarea is honest but unhelpful for listeners
-   and routes, which have a small, well known shape.
+3. **Structured editing for nested shapes.** The guided form covers scalar members. Objects and
+   arrays — `processes`, `isolation`, route steps — still mean dropping to JSON.
 
 Read-only remains the default and the documented safe deployment.
 
