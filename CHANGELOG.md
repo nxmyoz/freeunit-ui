@@ -56,6 +56,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   objects, arrays and members the specification does not describe survive untouched and are named
   in the interface.
 
+- A references page showing what listeners and routes point at, whether it resolves, and what
+  nothing refers to.
+- Snapshot comparison, against the running configuration or another snapshot.
+- Application restart from the overview, via the control API. Not a configuration change, so it
+  takes no snapshot.
+- Certificate bundle upload, by file or paste, replacing an existing bundle under the same name.
+  Key material is never snapshotted and never echoed back into the form.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

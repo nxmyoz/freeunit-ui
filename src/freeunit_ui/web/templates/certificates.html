@@ -3,6 +3,10 @@
 {% block title %}Certificates{% endblock %}
 {% block content %}
 <h1>Certificates</h1>
+{% if stored %}<p class="applied" role="status">Stored <code>{{ stored }}</code>.</p>{% endif %}
+{% if writes_enabled %}
+<p class="actions"><a class="button-secondary" href="{{ url_for('writes.certificate_form') }}">Store a bundle</a></p>
+{% endif %}
 {% if rows %}
 <div class="scroller">
 <table>

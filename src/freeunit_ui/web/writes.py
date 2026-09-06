@@ -285,6 +285,61 @@ def snapshots() -> str:
     )
 
 
+@bp.post("/applications/<name>/restart")
+def restart(name: str) -> Response:
+    """Restart an application's processes.
+
+    Not a configuration change, so no snapshot is taken and no baseline
+    applies: nothing is stored and the running configuration is untouched.
+    Unit exposes restart as a GET, which would make it triggerable from any
+    page an operator visits, so it is reached here through a form with a token.
+    """
+    validate(request.form.get(FIELD_NAME))
+    with get_write_client() as writer:
+        writer.restart_application(name)
+    return redirect(url_for("web.dashboard", restarted=name))
+
+
+@bp.get("/certificates/upload")
+def certificate_form() -> str:
+    """Show the form for storing a certificate bundle."""
+    return render_template(
+        "certificate.html", csrf_token=issue_token(), name=request.args.get("name", "")
+    )
+
+
+@bp.post("/certificates/upload")
+def certificate_upload() -> Response | tuple[str, int]:
+    """Store a certificate bundle under a chosen name.
+
+    The bundle contains a private key, so it is never snapshotted and never
+    echoed back into the form: a failed upload asks for the file again rather
+    than redisplaying key material in a page that could be cached or shouldered.
+    """
+    validate(request.form.get(FIELD_NAME))
+    name = request.form.get("name", "").strip()
+    upload = request.files.get("bundle")
+    pasted = request.form.get("pasted", "")
+    bundle = upload.read() if upload and upload.filename else pasted.encode("utf-8")
+
+    problem = ""
+    if not name:
+        problem = "A bundle name is required."
+    elif "/" in name or name in {".", ".."}:
+        problem = "A bundle name cannot contain a slash."
+    elif b"BEGIN" not in bundle:
+        problem = "That does not look like PEM: no BEGIN marker was found."
+
+    if problem:
+        return render_template(
+            "certificate.html", csrf_token=issue_token(), name=name, error=problem
+        ), 400
+
+    with get_write_client() as writer:
+        writer.put_certificate(name, bundle)
+    return redirect(url_for("web.certificates", stored=name))
+
+
 @bp.get("/snapshots/<name>/diff")
 def diff(name: str) -> str:
     """Show what changed between a snapshot and the running configuration.

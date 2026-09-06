@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% set active = 'certificates' %}
+{% block title %}Store a certificate{% endblock %}
+{% block content %}
+<h1>Store a certificate bundle</h1>
+<p class="detail">Uploading under an existing name replaces that bundle. Listeners referring to it
+pick up the new certificate without a configuration change.</p>
+
+{% if error %}<p class="detail bad-box" role="alert">{{ error }}</p>{% endif %}
+
+<form method="post" enctype="multipart/form-data" action="{{ url_for('writes.certificate_upload') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <label for="name">Bundle name</label>
+  <input type="text" id="name" name="name" value="{{ name or '' }}" required
+         placeholder="example-org" aria-describedby="name-hint">
+  <p id="name-hint" class="hint">The name listeners refer to in <code>tls.certificate</code>.</p>
+
+  <label for="bundle">Certificate file</label>
+  <input type="file" id="bundle" name="bundle" accept=".pem,.crt,.key,application/x-pem-file">
+  <p class="hint">The full chain and its private key, concatenated, in PEM.</p>
+
+  <label for="pasted">…or paste it</label>
+  <textarea id="pasted" name="pasted" rows="10" spellcheck="false"
+            placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+
+  <div class="actions">
+    <button type="submit">Store</button>
+    <a class="button-secondary" href="{{ url_for('web.certificates') }}">Cancel</a>
+  </div>
+  <p class="hint">The private key is sent to FreeUnit and never written to a snapshot, and is not
+  shown again if this form comes back with an error.</p>
+</form>
+{% endblock %}

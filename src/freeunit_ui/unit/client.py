@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from types import TracebackType
 from typing import Any, Self
+from urllib.parse import quote
 
 import httpx
 
@@ -141,10 +142,39 @@ class UnitWriteClient(UnitClient):
         """
         return self._send("DELETE", path, None)
 
-    def _send(self, method: str, path: str, payload: Any) -> Any:
+    def restart_application(self, name: str) -> Any:
+        """Restart an application's processes.
+
+        This is not a configuration change: nothing is stored, and the running
+        configuration is untouched. Unit exposes it as a GET, which is why the
+        interface wraps it in a form rather than linking to it.
+
+        Raises:
+            UnitConnectionError: The socket could not be reached.
+            UnitAPIError: No such application, or unitd refused.
+        """
+        return self._send("GET", f"/control/applications/{quote(name, safe='')}/restart", None)
+
+    def put_certificate(self, name: str, bundle: bytes) -> Any:
+        """Store a certificate bundle under ``name``.
+
+        Args:
+            name: Bundle name to create or replace.
+            bundle: The PEM chain and its private key, sent as-is rather than
+                as JSON, which is what the control API expects here.
+
+        Raises:
+            UnitConnectionError: The socket could not be reached.
+            UnitAPIError: unitd rejected the bundle.
+        """
+        return self._send("PUT", f"/certificates/{quote(name, safe='')}", None, content=bundle)
+
+    def _send(self, method: str, path: str, payload: Any, *, content: bytes | None = None) -> Any:
         """Issue a mutating request and map failures onto the exception types."""
         try:
-            if payload is None:
+            if content is not None:
+                response = self._http.request(method, path, content=content)
+            elif payload is None:
                 response = self._http.request(method, path)
             else:
                 response = self._http.request(method, path, json=payload)

@@ -89,6 +89,22 @@ Every setting is an environment variable prefixed `FREEUNIT_UI_`.
 Distributions differ on the socket path: Gentoo's `www-servers/freeunit` uses
 `/run/freeunit.sock`, upstream packages commonly use `/var/run/control.unit.sock`.
 
+## Beyond the configuration
+
+**References** shows what listeners and routes point at and whether it is configured — the class
+of mistake a schema cannot catch, since it lives in the document. Destinations built from
+variables are reported as decided-per-request rather than broken.
+
+**Snapshots** can be compared with the running configuration or with each other, so a change is
+readable rather than merely reversible.
+
+**Applications** can be restarted from the overview. That is not a configuration change: nothing
+is stored and no snapshot is taken.
+
+**Certificate bundles** can be uploaded, by file or paste, replacing an existing bundle under the
+same name. Listeners referring to it pick up the new certificate with no configuration change. Key
+material is never written to a snapshot and never echoed back into the form.
+
 ## Two ways to configure
 
 **Guided** renders the members the specification describes as typed inputs — text, numbers,

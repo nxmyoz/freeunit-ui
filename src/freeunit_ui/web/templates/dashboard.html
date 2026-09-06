@@ -3,6 +3,7 @@
 {% block title %}Overview{% endblock %}
 {% block content %}
 <h1>Overview</h1>
+{% if restarted %}<p class="applied" role="status">Restarted <code>{{ restarted }}</code>.</p>{% endif %}
 
 <h2 id="conn-heading">Connections</h2>
 <ul class="cards" aria-labelledby="conn-heading">
@@ -27,7 +28,7 @@
 <div class="scroller">
 <table>
   <caption class="visually-hidden">Configured applications and their process counts</caption>
-  <thead><tr><th scope="col">Application</th><th scope="col">Running</th><th scope="col">Starting</th><th scope="col">Idle</th><th scope="col">Active requests</th></tr></thead>
+  <thead><tr><th scope="col">Application</th><th scope="col">Running</th><th scope="col">Starting</th><th scope="col">Idle</th><th scope="col">Active requests</th>{% if writes_enabled %}<th scope="col"><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
   <tbody>
   {% for name, app in status.applications | dictsort %}
     <tr>
@@ -36,6 +37,14 @@
       <td>{{ app.processes.starting }}</td>
       <td>{{ app.processes.idle }}</td>
       <td>{{ app.requests.active }}</td>
+      {% if writes_enabled %}
+      <td>
+        <form method="post" action="{{ url_for('writes.restart', name=name) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="button-secondary">Restart</button>
+        </form>
+      </td>
+      {% endif %}
     </tr>
   {% endfor %}
   </tbody>

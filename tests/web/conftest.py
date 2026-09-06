@@ -30,6 +30,12 @@ class Recorder:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if path.startswith("/control/"):
+            self.writes.append((request.method, path, None))
+            return httpx.Response(200, json={"success": "Ok."})
+        if path.startswith("/certificates/") and request.method == "PUT":
+            self.writes.append((request.method, path, None))
+            return httpx.Response(200, json={"success": "Ok."})
         if request.method in {"PUT", "DELETE"}:
             body = json.loads(request.content) if request.content else None
             self.writes.append((request.method, path, body))

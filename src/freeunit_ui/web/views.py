@@ -55,6 +55,8 @@ def dashboard() -> str:
         certificate_count=len(certificates),
         expiring=expiring,
         warning_days=settings.cert_expiry_warning_days,
+        restarted=request.args.get("restarted"),
+        csrf_token=issue_token() if settings.enable_writes else None,
     )
 
 
@@ -125,7 +127,10 @@ def certificates() -> str:
         for name, bundle in sorted(bundles.items())
     ]
     return render_template(
-        "certificates.html", rows=rows, warning_days=settings.cert_expiry_warning_days
+        "certificates.html",
+        rows=rows,
+        warning_days=settings.cert_expiry_warning_days,
+        stored=request.args.get("stored"),
     )
 
 
