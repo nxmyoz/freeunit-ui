@@ -64,6 +64,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Certificate bundle upload, by file or paste, replacing an existing bundle under the same name.
   Key material is never snapshotted and never echoed back into the form.
 
+### Security
+
+- Escape configuration member names in the unrecognised-members list, which were rendered as
+  markup. See SECURITY.md for the audit this came from.
+- Limit request bodies, configurable with `FREEUNIT_UI_MAX_UPLOAD_BYTES`.
+- Refuse empty and relative names for certificate bundles and applications, which URL
+  normalisation would otherwise collapse out of their path segment.
+
 ### Changed
 
 - Writing is a separate `UnitWriteClient` subclass; `UnitClient` still has no write method, so the

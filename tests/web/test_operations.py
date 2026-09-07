@@ -148,3 +148,25 @@ def test_certificates_page_links_to_upload_only_with_writes(
 ) -> None:
     assert "Store a bundle" not in web.get("/certificates").get_data(as_text=True)
     assert "Store a bundle" in writer.get("/certificates").get_data(as_text=True)
+
+
+def test_an_oversized_upload_is_refused_before_it_is_read(
+    writer: FlaskClient, recorder: Recorder
+) -> None:
+    # The body is read into memory in full before it can be inspected, so the
+    # limit has to be enforced by the server rather than by this code.
+    import io as _io
+
+    token = _token(writer, "/certificates/upload")
+    huge = b"-----BEGIN CERTIFICATE-----\n" + b"A" * 2_000_000
+    response = writer.post(
+        "/certificates/upload",
+        data={
+            "csrf_token": token,
+            "name": "huge",
+            "bundle": (_io.BytesIO(huge), "huge.pem"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 413
+    assert recorder.writes == []

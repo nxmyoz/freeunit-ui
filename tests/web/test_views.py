@@ -174,3 +174,19 @@ def test_references_page_shows_broken_pointers(routes: dict[str, Any]) -> None:
 
 def test_references_page_is_available_without_writes(web: FlaskClient) -> None:
     assert web.get("/references").status_code == 200
+
+
+def test_member_names_from_the_configuration_cannot_inject_markup(
+    routes: dict[str, Any],
+) -> None:
+    # Member names are chosen by whoever writes the configuration, and the
+    # reference panel lists the ones it does not recognise. Marking that list
+    # safe would render those names as markup.
+    payload = "<img src=x onerror=alert(1)>"
+    routes["/config/applications/blog"] = {"type": "python 3", "module": "m", payload: 1}
+    app = create_app(Settings(), client_factory=lambda: make_client(make_handler(routes)))
+    with app.test_client() as client:
+        body = client.get("/config/applications/blog").get_data(as_text=True)
+
+    assert payload not in body
+    assert "&lt;img src=x onerror=alert(1)&gt;" in body

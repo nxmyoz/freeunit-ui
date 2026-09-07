@@ -15,7 +15,7 @@ from urllib.parse import quote
 
 import httpx
 
-from .errors import UnitAPIError, UnitConnectionError
+from .errors import UnitAPIError, UnitConnectionError, UnitError
 from .models import CertificateBundle, Status
 from .transport import build_client
 
@@ -102,6 +102,20 @@ class UnitClient:
         }
 
 
+def _segment(name: str) -> str:
+    """Percent-encode ``name`` as a single, inescapable path segment.
+
+    ``quote`` leaves dots alone, and a name of ".." would then be collapsed by
+    URL normalisation before the request is sent: a certificate bundle called
+    ".." becomes a PUT to the API root, carrying its private key. Relative
+    segments are not addressable, so they are refused rather than encoded.
+    """
+    if name in {"", ".", ".."}:
+        msg = f"{name!r} is not an addressable name"
+        raise UnitError(msg)
+    return quote(name, safe="")
+
+
 class UnitWriteClient(UnitClient):
     """Read-write access to a FreeUnit control socket.
 
@@ -150,24 +164,27 @@ class UnitWriteClient(UnitClient):
         interface wraps it in a form rather than linking to it.
 
         Raises:
+            UnitError: The name is empty or a relative path segment.
             UnitConnectionError: The socket could not be reached.
             UnitAPIError: No such application, or unitd refused.
         """
-        return self._send("GET", f"/control/applications/{quote(name, safe='')}/restart", None)
+        return self._send("GET", f"/control/applications/{_segment(name)}/restart", None)
 
     def put_certificate(self, name: str, bundle: bytes) -> Any:
         """Store a certificate bundle under ``name``.
 
         Args:
-            name: Bundle name to create or replace.
+            name: Bundle name to create or replace. Must be addressable: an
+                empty or relative name is refused.
             bundle: The PEM chain and its private key, sent as-is rather than
                 as JSON, which is what the control API expects here.
 
         Raises:
+            UnitError: The name is empty or a relative path segment.
             UnitConnectionError: The socket could not be reached.
             UnitAPIError: unitd rejected the bundle.
         """
-        return self._send("PUT", f"/certificates/{quote(name, safe='')}", None, content=bundle)
+        return self._send("PUT", f"/certificates/{_segment(name)}", None, content=bundle)
 
     def _send(self, method: str, path: str, payload: Any, *, content: bytes | None = None) -> Any:
         """Issue a mutating request and map failures onto the exception types."""

@@ -49,6 +49,7 @@ def create_app(
     # Templates and static assets live with the web layer they belong to.
     app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
     app.config[SETTINGS_KEY] = resolved
+    app.config["MAX_CONTENT_LENGTH"] = resolved.max_upload_bytes
 
     def default_factory() -> UnitClient:
         return UnitClient.connect(resolved.control, timeout=resolved.timeout)

@@ -38,6 +38,30 @@ If you cannot satisfy points 1 and 3, do not deploy this.
   are rejected before a control API path is built.
 - Responses are sent with `Cache-Control: no-store`, since pages contain server configuration.
 
+## What has been reviewed
+
+An audit of 0.4 covered authentication coverage, CSRF, injection, secret handling, resource
+limits and dependencies. Findings and their fixes:
+
+- **HTML injection through configuration member names.** The panel listing members the bundled
+  specification does not recognise joined them with markup and marked the result safe, so a
+  member named `<img src=x onerror=...>` was rendered unescaped. Whoever writes the configuration
+  chooses those names, so this turned config-write access into an attack on the operator's
+  browser. The Content-Security-Policy would have blocked the script, but the markup still
+  rendered. Fixed by escaping each name; asserted by a test.
+- **No request body limit.** An upload was read into memory in full before it could be inspected.
+  Bounded by `FREEUNIT_UI_MAX_UPLOAD_BYTES`, default 1 MiB.
+- **Unaddressable names escaped their path segment.** `quote()` does not encode dots, so a
+  certificate bundle named `..` collapsed under URL normalisation into a `PUT` at the API root
+  carrying its private key. Empty and relative names are now refused by the client itself.
+
+Checked and found sound: every mutating endpoint validates a CSRF token; `require_auth` covers
+every route including static assets, with only `/healthz` exempt by design; configuration paths
+reject empty and relative segments; snapshot names are matched against the listing rather than
+used to build a path; reflected query parameters are escaped; security headers are present on
+error responses too; the package logs nothing; snapshots never contain certificate material; and
+no dependency has a known vulnerability.
+
 ## Supported versions
 
 Pre-1.0, only the latest release receives fixes.

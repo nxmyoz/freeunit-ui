@@ -5,7 +5,13 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from freeunit_ui.unit import UnitAPIError, UnitClient, UnitConnectionError, UnitWriteClient
+from freeunit_ui.unit import (
+    UnitAPIError,
+    UnitClient,
+    UnitConnectionError,
+    UnitError,
+    UnitWriteClient,
+)
 from freeunit_ui.unit.transport import build_client, iter_socket_candidates
 from tests.conftest import DEFAULT_ROUTES, make_client, make_handler
 
@@ -180,3 +186,39 @@ def test_write_connection_failure_is_wrapped() -> None:
     )
     with client, pytest.raises(UnitConnectionError):
         client.put_json("/config", {})
+
+
+@pytest.mark.parametrize("name", ["..", ".", ""])
+def test_unaddressable_names_are_refused(name: str) -> None:
+    # quote() leaves dots alone, so a bundle called ".." would be collapsed by
+    # URL normalisation into a PUT at the API root, carrying its private key.
+    client = UnitWriteClient(
+        httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})))
+    )
+    with client:
+        with pytest.raises(UnitError):
+            client.put_certificate(name, b"key material")
+        with pytest.raises(UnitError):
+            client.restart_application(name)
+
+
+@pytest.mark.parametrize("name", ["a/b", "../../config", "with space", "*:8080"])
+def test_names_stay_inside_their_path_segment(name: str) -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        return httpx.Response(200, json={})
+
+    client = UnitWriteClient(
+        httpx.Client(transport=httpx.MockTransport(handler), base_url="http://u")
+    )
+    with client:
+        client.put_certificate(name, b"x")
+        client.restart_application(name)
+
+    assert seen[0].startswith("/certificates/")
+    assert seen[0].count("/") == 2
+    assert seen[1].startswith("/control/applications/")
+    assert seen[1].endswith("/restart")
+    assert seen[1].count("/") == 4

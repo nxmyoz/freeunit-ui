@@ -134,6 +134,21 @@ def certificates() -> str:
     )
 
 
+@bp.app_errorhandler(413)
+def _too_large(error: object) -> tuple[str, int]:
+    """Render a 413 when a request body exceeds the configured limit."""
+    limit = get_settings().max_upload_bytes
+    return (
+        render_template(
+            "error.html",
+            title="That is too large",
+            detail=f"Request bodies are limited to {limit} bytes.",
+            hint="A certificate bundle is normally a few kilobytes.",
+        ),
+        413,
+    )
+
+
 @bp.app_errorhandler(SnapshotError)
 def _snapshot_missing(error: SnapshotError) -> tuple[str, int]:
     """Render a 404 for a snapshot that does not exist."""

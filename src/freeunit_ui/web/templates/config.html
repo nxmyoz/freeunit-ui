@@ -32,7 +32,8 @@
   <h2>What this is</h2>
   {% if info.description %}<p class="detail">{{ info.description }}</p>{% endif %}
   {% if info.unknown_members %}
-  <p class="hint">Not described by the bundled specification (FreeUnit {{ spec_version }}), which may simply be older than your server: <code>{{ info.unknown_members | join('</code>, <code>') | safe }}</code></p>
+  <p class="hint">Not described by the bundled specification (FreeUnit {{ spec_version }}), which may simply be older than your server:
+  {% for name in info.unknown_members %}<code>{{ name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
   {% endif %}
   {% if info.members %}
   <div class="scroller">

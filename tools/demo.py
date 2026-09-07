@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import socketserver
+import sys
 import tempfile
 import threading
 from datetime import UTC, datetime, timedelta
@@ -228,6 +229,15 @@ def main() -> None:
     parser.add_argument("--writes", action="store_true", help="enable configuration editing")
     parser.add_argument("--user", default="", help="identity a proxy would have asserted")
     args = parser.parse_args()
+
+    if args.writes and args.host not in {"127.0.0.1", "::1", "localhost"}:
+        # This runs a writable interface with a fixed, public secret key.
+        print(
+            f"Refusing to serve --writes on {args.host}: the demo uses a fixed "
+            "secret key and no authentication. Use the default loopback address.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
 
     workdir = Path(tempfile.mkdtemp(prefix="freeunit-ui-demo-"))
     sock = workdir / "control.sock"

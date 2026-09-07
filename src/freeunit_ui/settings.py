@@ -66,6 +66,16 @@ class Settings(BaseSettings):
         ),
     )
 
+    max_upload_bytes: int = Field(
+        default=1_048_576,
+        ge=1024,
+        description=(
+            "Largest request body accepted. Certificate bundles are a few "
+            "kilobytes; the limit exists so an upload cannot be used to exhaust "
+            "memory, since the body is read in full before it is inspected."
+        ),
+    )
+
     enable_writes: bool = Field(
         default=False,
         description=(
