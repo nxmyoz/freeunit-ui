@@ -1,0 +1,620 @@
+/* FreeUnit UI — project page. One stylesheet, no JavaScript.
+ *
+ * This page is a sibling of the interface's own app.css, not a separate
+ * design. Every colour token below is copied from it verbatim, light and
+ * dark, and so is the vocabulary: square corners, hairline rules, IBM Plex
+ * Mono for anything structural or machine-written and IBM Plex Sans for
+ * prose, no logo.
+ *
+ * Two deliberate differences from app.css:
+ *
+ * 1. The fonts are fetched here, not merely named. app.css declines web
+ *    fonts because the interface serves `default-src 'none'` with no
+ *    font-src, and weakening that in software that configures a web server
+ *    as root is not a trade worth making. A static page has no control
+ *    socket and no privileged process, so the reasoning does not carry
+ *    across. They are self-hosted rather than pulled from a font CDN: the
+ *    five faces subset to latin are 54 KB in total, and a visitor reading
+ *    about privileged software should not have to announce themselves to a
+ *    third party to see it in the right typeface. IBM Plex is OFL 1.1;
+ *    assets/fonts/LICENSE.txt travels with it.
+ *
+ * 2. app.css has one heading scale because the interface has one kind of
+ *    page. Here the small mono section label that is h2 in the interface
+ *    becomes .eyebrow, and h2 takes the interface's h1 treatment, so the
+ *    page has a real hierarchy without inventing a new idiom for it.
+ */
+
+/* Fonts: IBM Plex Mono 400/600, IBM Plex Sans 300/400/600 — the weights
+ * freeunit.org itself loads, minus the 300 italic, which nothing here uses. */
+
+@font-face {
+  font-family: "Plex Mono Web";
+  src: url("fonts/plex-mono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Mono Web";
+  src: url("fonts/plex-mono-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans Web";
+  src: url("fonts/plex-sans-300.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans Web";
+  src: url("fonts/plex-sans-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans Web";
+  src: url("fonts/plex-sans-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+
+  /* freeunit.org, verbatim */
+  --bg: #f9f8f6;
+  --surface: #ffffff;
+  --border: #e0ddd8;
+  --text: #1a1a1a;
+  --muted: #6b6560;
+  --accent: #006644;
+  --accent-light: #e8f5f0;
+  --accent-hover: #005035;
+
+  /* derived in app.css, kept identical here */
+  --on-accent: #ffffff;
+  --field: #8b837a;
+
+  --warn-bg: #fbf0da;
+  --warn-text: #7a4a06;
+  --bad-bg: #fce8e6;
+  --bad-text: #8f2018;
+
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --code-muted: #9a938c;
+  --code-border: #333333;
+
+  /* "Plex * Web" first so the self-hosted subset wins over a locally
+   * installed Plex, which would otherwise render the same page in whatever
+   * version the machine happens to have. */
+  --mono: "Plex Mono Web", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Plex Sans Web", "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --col: 68rem;
+  --measure: 46rem;
+  --gutter: 1.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141310;
+    --surface: #1c1a17;
+    --border: #332f2a;
+    --text: #ece9e4;
+    --muted: #a9a29a;
+    --accent: #4cb98a;
+    --accent-light: #16281f;
+    --accent-hover: #6fcfa3;
+
+    --on-accent: #0c1410;
+    --field: #6d665e;
+
+    --warn-bg: #332812;
+    --warn-text: #f0c878;
+    --bad-bg: #3a1d1a;
+    --bad-text: #f4a9a0;
+
+    --code-bg: #100f0e;
+    --code-text: #d4d4d4;
+    --code-muted: #9a938c;
+    --code-border: #6d665e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-hover); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap {
+  max-width: var(--col);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* The wordmark, exactly as app.css builds it: mono 600, the first half in
+ * the accent, the rest stepped back to muted 400, and upstream's terminal
+ * cursor held still after it. Drawn rather than typed, so there is no glyph
+ * for a screen reader to announce. */
+.brand {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.brand span { color: var(--muted); font-weight: 400; }
+.brand::after {
+  content: "";
+  display: inline-block;
+  width: 0.42em;
+  height: 0.95em;
+  margin-left: 0.3em;
+  background: var(--accent);
+  vertical-align: -0.1em;
+}
+
+/* Shell */
+
+header.site {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+header.site .wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-block: 1rem;
+}
+header.site .brand { font-size: 1rem; }
+header.site ul {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0 0 0 auto;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+header.site ul a {
+  color: var(--muted);
+  text-decoration: none;
+  padding-bottom: 3px;
+  border-bottom: 2px solid transparent;
+}
+header.site ul a:hover { color: var(--text); border-bottom-color: var(--border); }
+
+footer.site {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  margin-top: 4rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+footer.site .wrap {
+  padding-block: 1.75rem 2.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  justify-content: space-between;
+}
+footer.site p { margin: 0; max-width: 34rem; line-height: 1.7; }
+footer.site ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1.25rem; }
+
+/* Headings. .eyebrow is app.css's h2: a small mono caption in the accent,
+ * carried across the column by a hairline. */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+h1, h2, h3 {
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 1rem;
+}
+h1 { font-size: clamp(2rem, 7vw, 3.25rem); letter-spacing: -0.04em; }
+h2 { font-size: clamp(1.3rem, 3.4vw, 1.75rem); }
+h3 { font-size: 1.05rem; letter-spacing: -0.02em; margin-bottom: 0.6rem; }
+
+p { max-width: var(--measure); }
+p + p { margin-top: 0.9rem; }
+
+.lede {
+  font-size: 1.05rem;
+  font-weight: 300;
+  color: var(--muted);
+  max-width: 48rem;
+}
+
+code { font-family: var(--mono); font-size: 0.9em; overflow-wrap: anywhere; }
+
+section { padding-block: 3rem; }
+section > .wrap > :last-child { margin-bottom: 0; }
+
+/* Hero */
+
+.hero { padding-block: clamp(2.75rem, 8vw, 5rem) 3rem; }
+.hero h1 .brand { font-size: inherit; }
+.hero .lede { margin: 0 0 1.5rem; font-size: clamp(1.05rem, 2.4vw, 1.3rem); }
+.hero p { font-size: 1rem; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 0;
+}
+.chips li {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.55rem;
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.button, .button-secondary {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.6rem 1.15rem;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.button { background: var(--accent); color: var(--on-accent); }
+.button:hover { background: var(--accent-hover); color: var(--on-accent); }
+.button-secondary {
+  background: var(--surface);
+  border-color: var(--field);
+  color: var(--text);
+  font-weight: 400;
+}
+.button-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+/* The notice. app.css marks a warning with its warm tint and a 3px rule on
+ * the leading edge; this is the same shape at section scale. */
+
+.notice {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-left: 3px solid var(--warn-text);
+  padding: 1.5rem 1.5rem 1.6rem;
+  max-width: 54rem;
+}
+.notice .eyebrow { color: inherit; }
+.notice .eyebrow::after { background: currentColor; opacity: 0.35; }
+.notice h2 { color: inherit; margin-bottom: 0.9rem; }
+.notice p, .notice li { color: inherit; max-width: 46rem; }
+.notice a { color: inherit; font-weight: 600; }
+.notice ul { margin: 0.9rem 0 0; padding-left: 1.15rem; }
+.notice li { margin-bottom: 0.65rem; }
+.notice li:last-child { margin-bottom: 0; }
+.notice strong { font-weight: 600; }
+.notice .stop {
+  margin-top: 1.2rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.aside {
+  background: var(--accent-light);
+  border-left: 3px solid var(--accent);
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+  max-width: 50rem;
+}
+.aside p { margin: 0; }
+.aside strong { color: var(--accent); font-weight: 600; }
+
+/* Screenshots. A framed plate: hairline border, the image edge to edge
+ * inside it, and a mono caption below its own hairline saying what is on
+ * screen. The interface ships light and dark; these were taken in light,
+ * and they are shown with their own colours rather than dimmed to suit the
+ * page around them. */
+
+.shot {
+  margin: 1.75rem 0 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid var(--border);
+}
+.shot figcaption {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+  padding: 0.7rem 0.9rem;
+  /* mono at a full 68rem measure is a wall; hold the caption to something
+   * closer to the 75 characters the rest of the page reads at */
+  max-width: 52rem;
+}
+
+.feature + .feature { margin-top: 3.25rem; }
+
+/* Every plate runs the full column. The README floats the guided editor
+ * beside its copy at 560px, which works in a README and does not work here:
+ * at 45% of this column its field labels stop being legible, and an
+ * illegible screenshot is decoration. Rhythm comes from the headings
+ * instead.
+ */
+
+/* Hairline card band, built the way app.css builds its counters: each cell
+ * overlaps its neighbour by the width of a border, so a short final row
+ * keeps the same cell width as a full one. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 0;
+}
+.grid li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin: 0 -1px -1px 0;
+  padding: 1.15rem 1.25rem 1.3rem;
+}
+.grid h3 { margin-bottom: 0.45rem; font-size: 0.95rem; }
+.grid p { margin: 0; font-size: 0.925rem; color: var(--muted); max-width: none; }
+.grid p + p { margin-top: 0.6rem; }
+.grid code { color: var(--text); }
+
+/* Scope: the same 3px leading rule, accent for what is in and muted for
+ * what is out. */
+.scope {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.75rem;
+}
+.scope div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 1.15rem 1.35rem 1.25rem;
+}
+.scope div + div { border-left-color: var(--field); }
+.scope h3 { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.scope div + div h3 { color: var(--muted); }
+.scope p { margin: 0; max-width: none; }
+
+/* Deployment chain. The README's diagram as text: nodes in mono boxes,
+ * hops labelled between them, turning vertical on a narrow screen. */
+
+.chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin: 1.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* --field, not --border, for the node outlines. app.css draws the line at
+ * exactly this distinction: its hairline is decorative, a form field's edge
+ * is not, and --field exists to clear the 3:1 of WCAG 1.4.11. In a diagram
+ * the box is the meaning — --surface sits 1.03:1 off --bg, so a decorative
+ * hairline at 1.28:1 would leave the whole chain resting on an invisible
+ * boundary. --field carries 3.52:1 light and 3.28:1 dark. */
+.chain .node {
+  background: var(--surface);
+  border: 1px solid var(--field);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+}
+.chain .node small {
+  font-weight: 400;
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+/* Not uppercased, unlike every other small mono label on the page: one of
+ * these hops is mTLS, and upper-casing it to match the others would throw
+ * away the half of the name that says which direction is authenticated. */
+.chain .hop {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding-inline: 0.15rem;
+}
+.chain .hop::after { content: "\2192"; font-size: 0.85rem; letter-spacing: 0; }
+
+/* Code, on app.css's dark surface in both schemes: the machine's own text,
+ * plainly not part of the page around it. */
+
+pre.code {
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--code-border);
+  padding: 1rem 1.1rem;
+  margin: 1.25rem 0 0;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.75;
+  tab-size: 2;
+}
+pre.code code { font-size: inherit; color: inherit; }
+/* The prompt is part of what the README shows, and not part of what you
+ * want on the clipboard. */
+pre.code .p { color: var(--code-muted); user-select: none; -webkit-user-select: none; }
+pre.code .c { color: var(--code-muted); }
+
+.step { margin-top: 2.25rem; }
+.step.first { margin-top: 2.5rem; }
+.step .hint { color: var(--muted); font-size: 0.925rem; margin-top: 0.9rem; }
+
+.after-chain { margin-top: 1.5rem; }
+.hint.tail { margin-top: 2rem; color: var(--muted); font-size: 0.925rem; }
+
+ul.plain { list-style: none; margin: 1.25rem 0 0; padding: 0; max-width: var(--measure); }
+ul.plain li {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  padding: 0.55rem 0 0.55rem 1.4rem;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+ul.plain li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 1.05rem;
+  width: 0.5rem;
+  height: 1px;
+  background: var(--accent);
+}
+ul.plain li:last-child { border-bottom: 0; }
+ul.plain .note { color: var(--muted); font-family: var(--sans); font-size: 0.875rem; }
+
+/* Documentation: hairline rows, mono title in the accent, sans gloss. */
+
+.doclinks {
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  max-width: 54rem;
+}
+.doclinks li + li { border-top: 1px solid var(--border); }
+.doclinks a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  padding: 0.85rem 1.1rem;
+  text-decoration: none;
+}
+.doclinks a:hover { background: var(--accent-light); }
+.doclinks .name {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.doclinks .what { color: var(--muted); font-size: 0.9rem; margin-left: auto; text-align: right; }
+.doclinks a:hover .what { color: var(--text); }
+
+.ext::after {
+  content: "\2197";
+  display: inline-block;
+  margin-left: 0.25em;
+  font-size: 0.85em;
+  text-decoration: none;
+}
+
+@media (max-width: 40rem) {
+  :root { --gutter: 1.1rem; }
+  section { padding-block: 2.25rem; }
+  footer.site .wrap { flex-direction: column; }
+  .notice { padding: 1.15rem 1.15rem 1.25rem; }
+  .chain { flex-direction: column; align-items: stretch; gap: 0.35rem; }
+  .chain .hop { padding-left: 0.85rem; }
+  .chain .hop::after { content: "\2193"; }
+  .doclinks .what { margin-left: 0; text-align: left; }
+  header.site ul { margin-left: 0; gap: 1rem; }
+  .actions .button, .actions .button-secondary { flex: 1 1 auto; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

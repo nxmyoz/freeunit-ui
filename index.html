@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeUnit UI &mdash; a web interface for the FreeUnit control API</title>
+<meta name="description" content="A web interface for the FreeUnit control API, the community LTS fork of NGINX Unit: runtime status, the full configuration tree, and certificate expiry, rendered as pages. Read-only by default.">
+<meta name="theme-color" content="#f9f8f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141310" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FreeUnit UI">
+<meta property="og:description" content="A web interface for the FreeUnit control API, the community LTS fork of NGINX Unit. Runtime status, the configuration tree, and certificate expiry, rendered as pages. Read-only by default.">
+<meta property="og:url" content="https://nxmyoz.github.io/freeunit-ui/">
+<meta property="og:image" content="https://nxmyoz.github.io/freeunit-ui/assets/images/dashboard.png">
+<meta property="og:image:alt" content="The overview page, showing connection counters, running applications, and a certificate expiring soon.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="assets/fonts/plex-mono-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <span class="brand">free<span>unit/ui</span></span>
+    <ul>
+      <li><a href="#interface">Interface</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#docs">Docs</a></li>
+      <li><a href="https://github.com/nxmyoz/freeunit-ui">GitHub</a></li>
+    </ul>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>
+        <span class="brand" aria-hidden="true">free<span>unit/ui</span></span>
+        <span class="visually-hidden">FreeUnit UI</span>
+      </h1>
+      <p class="lede">
+        A web interface for the
+        <a href="https://github.com/freeunitorg/freeunit">FreeUnit</a> control API, the community
+        LTS fork of NGINX Unit.
+      </p>
+      <p>
+        Unit is configured entirely through a JSON REST API rather than config files, which makes
+        it excellent to automate and awkward to inspect. Every &ldquo;nginx GUI&rdquo; project out
+        there targets classic nginx config files, and none of them speak this API. FreeUnit UI
+        reads it directly: runtime status, the full configuration tree, and certificate expiry,
+        rendered as pages instead of <code>curl</code> output piped through <code>jq</code>.
+      </p>
+      <ul class="chips">
+        <li>Apache&#8209;2.0</li>
+        <li>Python 3.11+</li>
+        <li>Config writes: opt&#8209;in</li>
+      </ul>
+      <div class="actions">
+        <a class="button ext" href="https://github.com/nxmyoz/freeunit-ui">View on GitHub</a>
+        <a class="button-secondary" href="#install">Quick start</a>
+      </div>
+
+      <figure class="shot">
+        <img src="assets/images/dashboard.png" width="1388" height="1000"
+             alt="Overview page showing connection counters, running applications, and a certificate expiring soon">
+        <figcaption>
+          The overview: connection and request counters, applications with their process counts,
+          and certificates inside the expiry window &mdash; thirty days by default. Applications
+          can be restarted from here. That is not a configuration change: nothing is stored, and
+          no snapshot is taken.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="security">
+    <div class="wrap">
+      <div class="notice">
+        <p class="eyebrow">Before anything else</p>
+        <h2>Read this before you install it</h2>
+        <p>
+          Writing FreeUnit configuration is equivalent to root. A configuration document can
+          define an application with an arbitrary <code>executable</code> and <code>user</code>,
+          so anything able to write config can run arbitrary code. Even read access exposes your
+          full server configuration, including which certificates and applications exist.
+        </p>
+        <ul>
+          <li>
+            <strong>This interface authenticates nobody.</strong> Put it behind something that
+            does: a reverse proxy with client certificates, OIDC, or an SSO forward-auth endpoint.
+            It can read the identity that proxy asserts, show it, record it against configuration
+            changes, and refuse requests that arrive without one, but the proxy is what decides
+            who gets in.
+          </li>
+          <li>
+            <strong>It binds to <code>127.0.0.1</code> by default.</strong> Do not expose it
+            directly to a network.
+          </li>
+          <li>
+            <strong>The process is privileged.</strong> Since FreeUnit 1.36.0 the UNIX control
+            socket only accepts peers whose effective UID is root or the user unitd runs as, so
+            this process must run as one of them. A compromise of this interface is therefore a
+            compromise of unitd.
+          </li>
+          <li>
+            <strong>There is no multi-user model</strong>, no per-user permissions and no audit
+            log. With writes enabled, anyone who reaches this interface can reconfigure FreeUnit,
+            which is equivalent to code execution on the host.
+          </li>
+        </ul>
+        <p class="stop">
+          If you cannot keep it behind authentication and limited to trusted operators, do not
+          deploy this.
+        </p>
+      </div>
+
+      <div class="aside">
+        <p>
+          <strong>Read-only is the default for that reason.</strong> With writes off the mutating
+          routes are never registered, so there is no endpoint to reach, and the read path is
+          built on a client class that has no write method on it at all. Writing needs a different
+          client, which only the write views construct.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="interface">
+    <div class="wrap">
+      <p class="eyebrow">Configuring</p>
+      <h2>Two ways in, and the guided one merges</h2>
+
+      <div class="feature">
+          <p>
+            <strong>Guided</strong> renders the members the bundled specification describes as
+            typed inputs: text, numbers, true/false, and a menu where the value must be one of a
+            set. <strong>Edit as JSON</strong> remains, and is how you reach everything else. The
+            two modes link to each other from every configuration page.
+          </p>
+          <p>
+            The guided form never replaces a document, it merges into it. Objects, arrays, and
+            members the specification has never heard of are carried across untouched and named in
+            the interface. A schema that gains fields every release will eventually outrun any
+            form built purely from types; the ones that replace the document lose what they
+            don&rsquo;t recognise, sooner or later.
+          </p>
+          <p>
+            A blank field removes an optional member; a required one is never removed, so the form
+            cannot produce a document it already knows is invalid.
+          </p>
+        <figure class="shot">
+          <img src="assets/images/guided-editor.png" width="1388" height="670" loading="lazy"
+               decoding="async"
+               alt="Guided editor showing typed fields for a Python application, with callable, group, home, module and path">
+          <figcaption>
+            Guided editing of a Python application. Required members are marked as such, and each
+            field carries the specification&rsquo;s own description of what it is for.
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="feature">
+        <h3>What the configuration points at</h3>
+        <p>
+          <strong>References</strong> shows what listeners and routes point at and whether it
+          resolves: the class of mistake a schema can&rsquo;t catch, since it lives in the
+          document rather than its shape. Destinations built from request-time variables are
+          reported as decided-per-request rather than broken.
+        </p>
+        <figure class="shot">
+          <img src="assets/images/references.png" width="1388" height="730" loading="lazy"
+               decoding="async"
+               alt="References page listing what listeners and routes point at, and a certificate nothing refers to">
+          <figcaption>
+            Every reference in the configuration and whether it resolves, and below it what
+            nothing points at &mdash; here two certificate bundles no listener refers to.
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Also</p>
+      <h2>The rest of it</h2>
+      <ul class="grid">
+        <li>
+          <h3>Configuration guidance</h3>
+          <p>
+            FreeUnit publishes an OpenAPI specification, and a copy is bundled here. Browsing
+            shows what each member means, which are required, and their defaults and permitted
+            values, resolved for the right application type since Python and PHP applications
+            describe different shapes.
+          </p>
+        </li>
+        <li>
+          <h3>Checks that warn, never refuse</h3>
+          <p>
+            Missing required members, values outside a permitted set, members of the wrong type,
+            and names the specification doesn&rsquo;t recognise, each reported at a JSON Pointer
+            the way unitd reports its own errors. A typo like <code>modul</code> shows up twice,
+            as a missing <code>module</code> and an unrecognised <code>modul</code>.
+          </p>
+          <p>
+            Findings warn and ask: an <em>Apply anyway</em> button, and a <em>Check</em> button to
+            look before applying. It is guidance, not a gate.
+          </p>
+        </li>
+        <li>
+          <h3>Rails under every change</h3>
+          <p>
+            With writes on, every change follows the same sequence. The CSRF token is checked; the
+            subtree is re-read and compared against what the form was built from, since the
+            control API offers no <code>ETag</code> and two operators could otherwise silently
+            overwrite each other; the whole configuration is snapshotted, because the API has no
+            undo; then the change is applied.
+          </p>
+        </li>
+        <li>
+          <h3>Snapshots, and the diff</h3>
+          <p>
+            Taken automatically before every change, and comparable against the running
+            configuration or against each other, so a change is readable and not merely
+            reversible.
+          </p>
+          <p>Snapshots are written <code>0600</code> in a <code>0700</code> directory.</p>
+        </li>
+        <li>
+          <h3>Certificate bundles</h3>
+          <p>
+            Upload by file or paste, replacing an existing bundle under the same name; listeners
+            referring to it pick up the new certificate with no configuration change at all.
+          </p>
+          <p>
+            Key material is never written to a snapshot and never echoed back into a form.
+          </p>
+        </li>
+        <li>
+          <h3>No JavaScript</h3>
+          <p>
+            None is served, which lets the Content-Security-Policy be
+            <code>default-src 'none'</code> with no <code>script-src</code> allowance at all.
+            Responses carry <code>Cache-Control: no-store</code>, since pages contain server
+            configuration.
+          </p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Deploying</p>
+      <h2>FreeUnit serves it, nginx guards it</h2>
+      <p>
+        The supported shape is FreeUnit serving this interface on a UNIX socket, with nginx in
+        front doing the authentication.
+      </p>
+      <div class="chain">
+        <span class="node">browser</span>
+        <span class="hop">mTLS</span>
+        <span class="node">nginx</span>
+        <span class="hop">unix socket</span>
+        <span class="node">freeunit-ui <small>run by FreeUnit</small></span>
+        <span class="hop">control socket</span>
+        <span class="node">unitd</span>
+      </div>
+      <p class="after-chain">
+        Working configuration for both sides is in
+        <a href="https://github.com/nxmyoz/freeunit-ui/tree/main/deploy"><code>deploy/</code></a>,
+        and the
+        <a href="https://github.com/nxmyoz/freeunit-ui/blob/main/docs/deployment.md">deployment
+        guide</a> walks through it, including why the listener is a UNIX socket rather than a
+        port, and the failure mode of letting the server host the interface that configures it.
+      </p>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <p class="eyebrow">Quick start</p>
+      <h2>Running it</h2>
+
+      <h3>Requirements</h3>
+      <ul class="plain">
+        <li>Python 3.11 or newer</li>
+        <li>FreeUnit or NGINX Unit with a reachable control socket</li>
+        <li>
+          FreeUnit 1.36.1 or newer for JSON Pointer error locations
+          <span class="note">&mdash; older releases work, with less precise error reporting</span>
+        </li>
+      </ul>
+
+      <div class="step first">
+        <h3>From a checkout</h3>
+        <p>Not published to a package index yet, so build it from one:</p>
+<pre class="code"><code><span class="p">$</span> python -m venv .venv &amp;&amp; . .venv/bin/activate
+<span class="p">$</span> pip install -e .
+<span class="p">$</span> FREEUNIT_UI_CONTROL=/run/freeunit.sock freeunit-ui</code></pre>
+        <p class="hint">
+          Then open <code>http://127.0.0.1:8099/</code>. <code>freeunit-ui</code> runs
+          Flask&rsquo;s development server: fine for a look around, not for anything else.
+          Distributions differ on the socket path &mdash; <code>/run/freeunit.sock</code> here,
+          while upstream packages commonly use <code>/var/run/control.unit.sock</code>.
+        </p>
+      </div>
+
+      <div class="step">
+        <h3>No FreeUnit instance handy</h3>
+        <p>
+          There is no hosted demo of this, and there will not be one. It authenticates nobody and
+          has to run as root or as the user unitd runs as, so a public instance is a bad idea in a
+          way no amount of sandboxing fixes. The demo harness runs the whole interface locally
+          against a fake control API instead:
+        </p>
+<pre class="code"><code><span class="p">$</span> python tools/demo.py --writes --user alice@example.org</code></pre>
+        <p class="hint">
+          Realistic data &mdash; an application in each of three languages, a certificate expiring
+          soon, one already expired &mdash; on the same <code>http://127.0.0.1:8099/</code>.
+        </p>
+      </div>
+
+      <div class="step">
+        <h3>Enabling configuration editing</h3>
+<pre class="code"><code><span class="p">$</span> export FREEUNIT_UI_ENABLE_WRITES=true
+<span class="p">$</span> export FREEUNIT_UI_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"</code></pre>
+        <p class="hint">
+          The interface refuses to start with writes enabled and no key, rather than generating
+          one. A generated key would appear to work and then silently break CSRF protection across
+          workers and restarts.
+        </p>
+      </div>
+
+      <p class="hint tail">
+        Every setting is an environment variable prefixed <code>FREEUNIT_UI_</code>; the full
+        table is in the
+        <a href="https://github.com/nxmyoz/freeunit-ui#configuration">README</a>.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Scope</p>
+      <h2>What this is and is not</h2>
+      <div class="scope">
+        <div>
+          <h3>In scope</h3>
+          <p>
+            Reading and presenting what the control API exposes, making expiry, misconfiguration,
+            and runtime health legible, and editing configuration safely for operators who opt in.
+          </p>
+        </div>
+        <div>
+          <h3>Out of scope</h3>
+          <p>
+            Being a PaaS, deploying applications, managing the host, or wrapping
+            <code>unitctl</code>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="docs">
+    <div class="wrap">
+      <p class="eyebrow">Documentation</p>
+      <h2>Read further</h2>
+      <ul class="doclinks">
+        <li>
+          <a class="ext" href="https://github.com/nxmyoz/freeunit-ui/blob/main/docs/architecture.md">
+            <span class="name">Architecture</span>
+            <span class="what">How the pieces fit together, and why</span>
+          </a>
+        </li>
+        <li>
+          <a class="ext" href="https://github.com/nxmyoz/freeunit-ui/blob/main/docs/deployment.md">
+            <span class="name">Deployment</span>
+            <span class="what">Running it safely</span>
+          </a>
+        </li>
+        <li>
+          <a class="ext" href="https://github.com/nxmyoz/freeunit-ui/blob/main/SECURITY.md">
+            <span class="name">Security model</span>
+            <span class="what">Trust boundaries, and how to report a vulnerability</span>
+          </a>
+        </li>
+        <li>
+          <a class="ext" href="https://github.com/nxmyoz/freeunit-ui/blob/main/CONTRIBUTING.md">
+            <span class="name">Contributing</span>
+            <span class="what">Development setup and expectations</span>
+          </a>
+        </li>
+        <li>
+          <a class="ext" href="https://github.com/nxmyoz/freeunit-ui/tree/main/deploy">
+            <span class="name">deploy/</span>
+            <span class="what">Working nginx and FreeUnit configuration</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>
+      Apache License 2.0, the same license FreeUnit itself uses. Set in IBM Plex, under the
+      <a href="assets/fonts/LICENSE.txt">SIL Open Font License 1.1</a>.
+    </p>
+    <ul>
+      <li><a href="https://github.com/nxmyoz/freeunit-ui">Repository</a></li>
+      <li><a href="https://github.com/nxmyoz/freeunit-ui/blob/main/LICENSE">License</a></li>
+      <li><a href="https://freeunit.org">freeunit.org</a></li>
+      <li><a href="https://github.com/freeunitorg/freeunit">FreeUnit source</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>
