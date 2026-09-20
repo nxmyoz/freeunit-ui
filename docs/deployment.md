@@ -20,7 +20,7 @@ you would use to fix it.** Snapshots are written to disk precisely so the recove
 need this interface:
 
 ```console
-# curl -X PUT --data-binary @/var/lib/freeunit-ui/snapshots/20260906T101500Z.json \
+# curl -X PUT --data-binary @/var/lib/freeunit-ui/snapshots/20260906T101500123456Z.json \
       --unix-socket /run/freeunit.sock http://localhost/config
 ```
 

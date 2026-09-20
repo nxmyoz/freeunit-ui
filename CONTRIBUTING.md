@@ -39,15 +39,10 @@ All four must pass. Coverage is enforced at 90%.
 
 ## Looking at it without a FreeUnit instance
 
-```console
-$ python tools/demo.py --writes --user alice@example.org
-```
-
-That serves canned but realistic control API responses over a temporary UNIX socket and runs the
-interface against them on <http://127.0.0.1:8099/>. The fixture deliberately includes a
+See the README's "Quick start" for how to run `tools/demo.py`. Its fixture deliberately includes a
 certificate expiring soon and one already expired, failing telemetry spans, and applications in
-three languages, so the states worth designing for are all visible. `--user` stands in for the
-reverse proxy asserting an identity. Nothing under `tools/` is part of the installed package.
+three languages, so the states worth designing for are all visible without having to construct
+them by hand.
 
 ## Testing without a FreeUnit instance
 

@@ -50,6 +50,11 @@ def create_app(
     app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
     app.config[SETTINGS_KEY] = resolved
     app.config["MAX_CONTENT_LENGTH"] = resolved.max_upload_bytes
+    # Werkzeug caps non-file form fields at 500 KB by default, independent of
+    # MAX_CONTENT_LENGTH - without raising it too, a configuration document
+    # submitted through the JSON editor's plain <textarea> can be rejected
+    # well under the limit this interface actually documents and enforces.
+    app.config["MAX_FORM_MEMORY_SIZE"] = resolved.max_upload_bytes
 
     def default_factory() -> UnitClient:
         return UnitClient.connect(resolved.control, timeout=resolved.timeout)

@@ -15,6 +15,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from .pointers import escape
+
 Kind = Literal["added", "removed", "changed"]
 
 #: Nesting beyond this is reported as a single change rather than descended
@@ -60,7 +62,7 @@ def _walk(before: Any, after: Any, pointer: str, depth: int) -> list[Change]:
 
     changes: list[Change] = []
     for key in sorted(set(before) | set(after)):
-        here = f"{pointer}/{key}"
+        here = f"{pointer}/{escape(key)}"
         if key not in after:
             changes.append(Change(pointer=here, kind="removed", before=before[key]))
         elif key not in before:

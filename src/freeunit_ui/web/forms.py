@@ -15,6 +15,7 @@ Raw JSON editing remains, and remains the way to reach everything else.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,6 +23,12 @@ from freeunit_ui.schema import Member, describe
 
 #: Scalar JSON types this form can render as an input.
 _EDITABLE = {"string", "integer", "number", "boolean"}
+
+#: A JSON number (RFC 8259), stricter than Python's own int()/float(): no
+#: digit-group underscores, no leading "+", no "inf"/"nan" - all valid Python
+#: numeric literals, none of them valid JSON, and none of them what a person
+#: typing "1_000" or "+5" into a number field is likely to have meant.
+_JSON_NUMBER = re.compile(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?")
 
 #: Rendered when a boolean is not set at all, which a checkbox cannot express.
 UNSET = ""
@@ -70,11 +77,24 @@ def _kind(member: Member) -> str:
 
 
 def _as_text(value: Any) -> str:
-    """Render a stored value for an input."""
+    """Render a stored value for an input.
+
+    ``build`` is expected to route a list or dict value to ``preserved``
+    before it ever reaches here, regardless of what the schema's declared
+    type said a member should be - the check below exists so that a future
+    caller which skips that step fails loudly instead of stringifying a
+    container into something that reads as a plausible scalar. ``str()`` on
+    a list produces its Python repr, e.g. ``"['/srv/a', '/srv/b']"``, which
+    an untouched round trip would then write back as a literal string,
+    silently destroying the array.
+    """
     if value is None:
         return UNSET
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, list | dict):
+        msg = f"cannot render a {type(value).__name__} as a form field"
+        raise TypeError(msg)
     return str(value)
 
 
@@ -90,7 +110,15 @@ def build(segments: list[str], document: Any) -> FormModel:
 
     for member in info.members:
         kind = _kind(member)
-        if kind == "other":
+        current = values.get(member.name)
+        # _kind classifies by the *declared* type, which for a union like
+        # "array or string" can read as manageable text even when the value
+        # actually stored is an array - a $ref resolves to a bare "object" in
+        # the schema info, so "array or string" can end up looking like
+        # "object or string", which passes the string-editable check. The
+        # runtime value is the ground truth regardless of what the schema
+        # says it could be, so a container is always left to the JSON editor.
+        if kind == "other" or isinstance(current, list | dict):
             if member.name in values:
                 unmanaged.append(member.name)
             continue
@@ -100,7 +128,7 @@ def build(segments: list[str], document: Any) -> FormModel:
                 kind=kind,
                 description=member.description,
                 required=member.required,
-                value=_as_text(values.get(member.name)),
+                value=_as_text(current),
                 choices=member.enum,
                 default=member.default,
             )
@@ -108,7 +136,8 @@ def build(segments: list[str], document: Any) -> FormModel:
 
     # Anything the specification does not describe is preserved untouched, and
     # named so the operator knows the form is not the whole picture.
-    unmanaged += [name for name in values if name not in {m.name for m in info.members}]
+    described = {m.name for m in info.members}
+    unmanaged += [name for name in values if name not in described]
 
     return FormModel(
         fields=tuple(fields),
@@ -124,18 +153,41 @@ class CoercionError(ValueError):
 def _coerce(field: Field, raw: str) -> Any:
     """Convert a submitted string to the member's type."""
     text = raw.strip()
-    if field.kind in {"integer", "number"}:
-        try:
-            return int(text) if field.kind == "integer" else float(text)
-        except ValueError as exc:
+    if field.kind == "integer":
+        return _coerce_integer(field, text, raw)
+    if field.kind == "number":
+        if not _JSON_NUMBER.fullmatch(text):
             msg = f"{field.name!r} must be a {field.kind}, got {raw!r}"
-            raise CoercionError(msg) from exc
+            raise CoercionError(msg)
+        return float(text)
     if field.kind == "boolean":
         if text not in {"true", "false"}:
             msg = f"{field.name!r} must be true or false, got {raw!r}"
             raise CoercionError(msg)
         return text == "true"
     return text
+
+
+def _coerce_integer(field: Field, text: str, raw: str) -> int:
+    """Convert a submitted string to an int, tolerating a whole-numbered float.
+
+    A member the specification declares an integer can still be stored as a
+    float - an operator could have set it to ``4.0`` through the JSON editor,
+    which a JSON number written with a decimal point deserialises to in
+    Python. This form then renders it as the text ``"4.0"``, and an untouched
+    round trip must survive submitting that back rather than failing a
+    coercion it never asked for.
+    """
+    if not _JSON_NUMBER.fullmatch(text):
+        msg = f"{field.name!r} must be a integer, got {raw!r}"
+        raise CoercionError(msg)
+    if "." not in text and "e" not in text and "E" not in text:
+        return int(text)
+    as_float = float(text)
+    if not as_float.is_integer():
+        msg = f"{field.name!r} must be a integer, got {raw!r}"
+        raise CoercionError(msg)
+    return int(as_float)
 
 
 def merge(model: FormModel, document: Any, submitted: dict[str, str]) -> dict[str, Any]:

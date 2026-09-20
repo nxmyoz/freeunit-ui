@@ -141,21 +141,6 @@ class UnitWriteClient(UnitClient):
         """
         return self._send("PUT", path, payload)
 
-    def delete_path(self, path: str) -> Any:
-        """Delete the value at a control API path.
-
-        Args:
-            path: Absolute API path to remove.
-
-        Returns:
-            The decoded success response from unitd.
-
-        Raises:
-            UnitConnectionError: The socket could not be reached.
-            UnitAPIError: unitd refused the deletion.
-        """
-        return self._send("DELETE", path, None)
-
     def restart_application(self, name: str) -> Any:
         """Restart an application's processes.
 

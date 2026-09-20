@@ -1,8 +1,9 @@
 """Endpoints that change the FreeUnit configuration.
 
-This blueprint is registered only when ``enable_writes`` is set. When it is not,
-these routes do not exist: there is no endpoint to reach, rather than an
-endpoint that declines.
+This blueprint is only registered when ``enable_writes`` is set. Leave it unset
+and Flask never learns these URLs exist, so a request against one falls through
+to the normal 404 instead of hitting a handler that has to decide whether to
+allow it.
 
 Every change follows the same sequence, and the order matters:
 
@@ -27,6 +28,7 @@ from freeunit_ui.diff import compare
 from freeunit_ui.extensions import get_client, get_snapshots, get_write_client
 from freeunit_ui.schema import SPEC_VERSION, describe
 from freeunit_ui.schema import scaffolds as scaffold_catalogue
+from freeunit_ui.schema.validation import Finding
 from freeunit_ui.schema.validation import check as check_document
 from freeunit_ui.unit.errors import UnitAPIError
 
@@ -82,7 +84,7 @@ def _render_form(
     baseline: str,
     absent: bool = False,
     error: str | None = None,
-    findings: list[Any] | None = None,
+    findings: list[Finding] | None = None,
     awaiting_confirmation: bool = False,
     reason: str = "",
 ) -> str:
@@ -113,7 +115,10 @@ def edit(subpath: str = "") -> str:
     segments = split_config_path(subpath)
     payload, absent = _read_or_absent(to_api_path(segments))
 
-    chosen = scaffold_catalogue.get(request.args.get("template", ""))
+    # A scaffold is a starting point for something that does not exist yet; a
+    # crafted ?template= on a path that already holds a real object must not
+    # be able to quietly swap the editor's contents out from under it.
+    chosen = scaffold_catalogue.get(request.args.get("template", "")) if absent else None
     document = chosen.as_json() if chosen else json.dumps(payload, indent=2, ensure_ascii=False)
 
     return _render_form(
@@ -169,22 +174,30 @@ def apply(subpath: str = "") -> Response | str | tuple[str, int]:
 def _commit(
     segments: list[str], api_path: str, document: Any, baseline: str, reason: str
 ) -> Response:
-    """Snapshot, apply, verify and redirect. Shared by both editing modes."""
-    current, _ = _read_or_absent(api_path)
-    if baseline_digest(current) != baseline:
-        msg = (
-            "The configuration changed while you were editing it. Reload the form "
-            "to see the current value before applying your change."
-        )
-        raise ConflictError(msg)
+    """Snapshot, apply, verify and redirect. Shared by both editing modes.
 
-    with get_client() as reader:
-        snapshot = get_snapshots().save(
-            reader.get_config(), author=current_identity(), reason=reason.strip() or None
-        )
+    Held under the snapshot store's lock for its whole read-check-write
+    sequence: without it, two operators could both read the same baseline,
+    both pass the check below, and both write, the second overwriting the
+    first with no trace beyond a snapshot that already contains it.
+    """
+    snapshots = get_snapshots()
+    with snapshots.lock():
+        current, _ = _read_or_absent(api_path)
+        if baseline_digest(current) != baseline:
+            msg = (
+                "The configuration changed while you were editing it. Reload the form "
+                "to see the current value before applying your change."
+            )
+            raise ConflictError(msg)
 
-    with get_write_client() as writer:
-        writer.put_json(api_path, document)
+        with get_client() as reader:
+            snapshot = snapshots.save(
+                reader.get_config(), author=current_identity(), reason=reason.strip() or None
+            )
+
+        with get_write_client() as writer:
+            writer.put_json(api_path, document)
 
     stored, _ = _read_or_absent(api_path)
     outcome = "applied" if baseline_digest(stored) == baseline_digest(document) else "differs"
@@ -199,21 +212,32 @@ def form(subpath: str = "") -> str:
     """Show the structured editor for the members the specification describes."""
     segments = split_config_path(subpath)
     payload, absent = _read_or_absent(to_api_path(segments))
-    return _render_structured(segments, payload, absent=absent)
+    return _render_structured(segments, payload, baseline=baseline_digest(payload), absent=absent)
 
 
 def _render_structured(
     segments: list[str],
     payload: Any,
     *,
+    baseline: str,
     absent: bool = False,
     error: str | None = None,
-    findings: list[Any] | None = None,
+    findings: list[Finding] | None = None,
     awaiting_confirmation: bool = False,
     reason: str = "",
     overrides: dict[str, str] | None = None,
 ) -> str:
-    """Render the structured editor in any of its states."""
+    """Render the structured editor in any of its states.
+
+    ``baseline`` is the digest to carry forward, not necessarily one computed
+    from ``payload``: once a submission has gone through check or hit a
+    coercion error, redisplaying must keep the baseline the operator's edit
+    started from, the same way ``_render_form`` does for the JSON editor.
+    Recomputing it here from whatever is on screen would silently adopt a new
+    baseline at every step, which defeats the conflict check entirely - it
+    would compare a later state against itself rather than against the value
+    the operator actually started editing.
+    """
     model = build_form(segments, payload)
     return render_template(
         "form.html",
@@ -222,7 +246,7 @@ def _render_structured(
         subpath="/".join(segments),
         model=model,
         overrides=overrides or {},
-        baseline=baseline_digest(payload),
+        baseline=baseline,
         csrf_token=issue_token(),
         absent=absent,
         error=error,
@@ -246,6 +270,32 @@ def form_apply(subpath: str = "") -> Response | str | tuple[str, int]:
 
     payload, absent = _read_or_absent(api_path)
     model = build_form(segments, payload)
+    # The template hides the form itself when there is nothing usable to
+    # merge into, but that is a display choice, not enforcement - a
+    # hand-crafted POST would otherwise still reach merge_form, which
+    # defaults a non-dict document to {}, replacing an existing array or
+    # scalar with an empty object.
+    if payload is not None and not isinstance(payload, dict):
+        return (
+            render_template(
+                "error.html",
+                title="Not a structured document",
+                detail="This path holds a value the guided editor cannot merge into.",
+                hint="Use the JSON editor instead, which replaces the whole value "
+                "rather than merging into it.",
+            ),
+            400,
+        )
+    if not model.usable:
+        return (
+            render_template(
+                "error.html",
+                title="Nothing here to edit",
+                detail="The specification does not describe any manageable member at this path.",
+                hint="Use the JSON editor instead.",
+            ),
+            400,
+        )
     try:
         document = merge_form(model, payload, submitted)
     except CoercionError as exc:
@@ -253,6 +303,7 @@ def form_apply(subpath: str = "") -> Response | str | tuple[str, int]:
             _render_structured(
                 segments,
                 payload,
+                baseline=baseline,
                 absent=absent,
                 error=str(exc),
                 reason=reason,
@@ -267,6 +318,7 @@ def form_apply(subpath: str = "") -> Response | str | tuple[str, int]:
         return _render_structured(
             segments,
             document,
+            baseline=baseline,
             absent=absent,
             findings=findings,
             awaiting_confirmation=bool(findings),
@@ -370,21 +422,29 @@ def diff(name: str) -> str:
 
 @bp.post("/snapshots/<name>/restore")
 def restore(name: str) -> Response:
-    """Restore a stored snapshot over the whole configuration."""
+    """Restore a stored snapshot over the whole configuration.
+
+    Deliberately has no baseline to conflict-check against - restoring is
+    usually the response to a concurrent change going wrong, not a
+    concurrent edit that ought to be refused. Still taken under the
+    snapshot store's lock, so two restores in flight at once serialize
+    rather than racing each other's read-snapshot-write sequence.
+    """
     validate(request.form.get(FIELD_NAME))
     store = get_snapshots()
     document = store.get(name).load()
 
-    # Snapshot the state we are about to replace, so restoring is itself undoable.
-    with get_client() as reader:
-        store.save(
-            reader.get_config(),
-            author=current_identity(),
-            reason=f"before restoring snapshot {name}",
-        )
+    with store.lock():
+        # Snapshot the state we are about to replace, so restoring is itself undoable.
+        with get_client() as reader:
+            store.save(
+                reader.get_config(),
+                author=current_identity(),
+                reason=f"before restoring snapshot {name}",
+            )
 
-    with get_write_client() as writer:
-        writer.put_json("/config", document)
+        with get_write_client() as writer:
+            writer.put_json("/config", document)
 
     return redirect(url_for("web.config"))
 

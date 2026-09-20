@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from flask import request
 
-from freeunit_ui.extensions import get_settings
+from freeunit_ui.extensions import SETTINGS_KEY, get_settings
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -37,7 +37,7 @@ def current_identity() -> str | None:
 
 def register_auth(app: Flask) -> None:
     """Refuse unauthenticated requests when the gate is enabled."""
-    settings = app.config["SETTINGS"]
+    settings = app.config[SETTINGS_KEY]
     if not settings.require_auth:
         return
 

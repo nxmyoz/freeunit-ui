@@ -14,7 +14,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from . import accepted_types, describe, raw_properties
+from freeunit_ui.pointers import escape
+
+from . import accepted_types, describe, first_word, raw_properties
 
 #: How far to descend. Configurations nest, but not deeply, and a bound keeps a
 #: hostile or generated document from costing anything noticeable.
@@ -66,7 +68,7 @@ def _check(segments: list[str], value: Any, pointer: str, depth: int) -> list[Fi
     kind_unknown = any(
         member.enum
         and isinstance(value.get(member.name), str)
-        and value[member.name].split()[0] not in member.enum
+        and first_word(value[member.name]) not in member.enum
         for member in info.members
         if member.name == "type"
     )
@@ -76,7 +78,7 @@ def _check(segments: list[str], value: Any, pointer: str, depth: int) -> list[Fi
         if kind_unknown
         else [
             Finding(
-                pointer=f"{pointer}/{name}",
+                pointer=f"{pointer}/{escape(name)}",
                 kind="unknown_member",
                 message=(
                     f"{name!r} is not in the bundled specification. That may simply mean "
@@ -91,7 +93,7 @@ def _check(segments: list[str], value: Any, pointer: str, depth: int) -> list[Fi
         if member.name not in value:
             continue
         given = value[member.name]
-        here = f"{pointer}/{member.name}"
+        here = f"{pointer}/{escape(member.name)}"
 
         accepted = accepted_types(props.get(member.name))
         if accepted and not _matches(given, accepted):
@@ -107,17 +109,15 @@ def _check(segments: list[str], value: Any, pointer: str, depth: int) -> list[Fi
             )
             continue
 
-        if member.enum and isinstance(given, str):
-            # Application types carry a version, as in "python 3".
-            head = given.split()[0] if given else given
-            if head not in member.enum:
-                findings.append(
-                    Finding(
-                        pointer=here,
-                        kind="not_in_enum",
-                        message=f"{given!r} is not one of: {', '.join(member.enum)}.",
-                    )
+        # Application types carry a version, as in "python 3".
+        if member.enum and isinstance(given, str) and first_word(given) not in member.enum:
+            findings.append(
+                Finding(
+                    pointer=here,
+                    kind="not_in_enum",
+                    message=f"{given!r} is not one of: {', '.join(member.enum)}.",
                 )
+            )
 
         if depth < _MAX_DEPTH and isinstance(given, dict):
             findings += _check([*segments, member.name], given, here, depth + 1)

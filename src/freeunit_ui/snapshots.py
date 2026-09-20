@@ -11,7 +11,7 @@ which certificate bundles exist, so they are written 0600 in a directory created
 The snapshot file holds nothing but the configuration document, so it stays
 directly usable outside this interface:
 
-    curl -X PUT --data-binary @20260906T101500Z.json \
+    curl -X PUT --data-binary @20260906T101500123456Z.json \
         --unix-socket /run/freeunit.sock http://localhost/config
 
 Who took it is kept in a small sibling ``.meta.json`` rather than wrapped around
@@ -21,8 +21,11 @@ in full.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +39,16 @@ _META_SUFFIX = ".meta.json"
 
 class SnapshotError(RuntimeError):
     """A snapshot could not be written or read."""
+
+
+class SnapshotNotFoundError(SnapshotError):
+    """No snapshot exists under the requested name.
+
+    Kept distinct from the base class so the web layer can tell "that name
+    does not exist" (404) apart from "the store could not be read or
+    written to" (a real failure, not a 404) - a disk-full or permission
+    error must not be reported as if the snapshot simply never existed.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +104,7 @@ class SnapshotStore:
         name = taken_at.strftime(_STAMP)
         target = self._dir / f"{name}{_SUFFIX}"
         try:
-            self._dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            self._ensure_private_dir()
             # Write then chmod-by-open: never let the file exist world readable.
             self._write_private(target, json.dumps(document, indent=2, ensure_ascii=False))
             self._write_private(
@@ -104,6 +117,46 @@ class SnapshotStore:
 
         self._prune()
         return Snapshot(name=name, path=target, taken_at=taken_at, author=author, reason=reason)
+
+    @contextmanager
+    def lock(self) -> Iterator[None]:
+        """Hold an exclusive, process-wide lock across a read-check-write sequence.
+
+        The control API has no compare-and-swap, so without this, two workers
+        can both read the same current state, both pass a conflict check
+        against it, and both write - the second silently clobbering the
+        first's change, snapshot included. Every worker already shares this
+        directory, so an flock on a file within it serializes the whole
+        sequence across all of them without needing a separate lock service.
+
+        Raises:
+            SnapshotError: The lock file's directory could not be created.
+        """
+        try:
+            self._ensure_private_dir()
+        except OSError as exc:
+            msg = f"Cannot create {self._dir} for the snapshot lock: {exc}"
+            raise SnapshotError(msg) from exc
+
+        fd = os.open(self._dir / ".lock", os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+
+    def _ensure_private_dir(self) -> None:
+        """Create the snapshot directory 0700, or tighten it if it already existed.
+
+        ``mkdir``'s ``mode`` only applies to a directory it actually creates:
+        a directory left behind by an older version of this code, or created
+        by something else entirely, keeps whatever permissions it already
+        had. Snapshots contain the complete configuration, so a mode not
+        actually enforced here is a confidentiality gap, not a formality.
+        """
+        self._dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(self._dir, 0o700)
 
     @staticmethod
     def _write_private(target: Path, text: str) -> None:
@@ -150,15 +203,15 @@ class SnapshotStore:
         """Return one snapshot by name.
 
         Raises:
-            SnapshotError: No snapshot of that name exists. The name is matched
-                against the listing rather than used to build a path, so it
-                cannot escape the snapshot directory.
+            SnapshotNotFoundError: No snapshot of that name exists. The name is
+                matched against the listing rather than used to build a path,
+                so it cannot escape the snapshot directory.
         """
         for snapshot in self.list():
             if snapshot.name == name:
                 return snapshot
         msg = f"No snapshot named {name!r}"
-        raise SnapshotError(msg)
+        raise SnapshotNotFoundError(msg)
 
     def _prune(self) -> None:
         """Delete the oldest snapshots beyond the retention limit."""

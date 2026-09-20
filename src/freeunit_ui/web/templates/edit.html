@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 {% set active = 'config' %}
-{% block title %}Edit configuration{% if info %}
+{% block title %}Edit configuration{% endblock %}
+{% block content %}
+<h1>Edit configuration</h1>
+<nav aria-label="Breadcrumb" class="crumbs">
+  <ol>
+    <li><a href="{{ url_for('web.config') }}">config</a></li>
+    {% for label, target in crumbs %}
+      <li><a href="{{ url_for('web.config', subpath=target) }}">{{ label }}</a></li>
+    {% endfor %}
+  </ol>
+</nav>
+
+<p class="modes">
+  <a href="{{ url_for('writes.form', subpath=subpath) if subpath else url_for('writes.form') }}">Guided</a>
+  <span aria-current="true">Edit as JSON</span>
+</p>
+
+{% if info %}
 <section class="reference">
   <h2>Members here</h2>
   {% if info.description %}<p class="detail">{{ info.description }}</p>{% endif %}
@@ -25,28 +42,12 @@
   <p class="hint">From the specification bundled with this interface, FreeUnit {{ spec_version }}. Your server decides what is actually valid.</p>
 </section>
 {% endif %}
-{% endblock %}
-{% block content %}
-<h1>Edit configuration</h1>
-<nav aria-label="Breadcrumb" class="crumbs">
-  <ol>
-    <li><a href="{{ url_for('web.config') }}">config</a></li>
-    {% for label, target in crumbs %}
-      <li><a href="{{ url_for('web.config', subpath=target) }}">{{ label }}</a></li>
-    {% endfor %}
-  </ol>
-</nav>
-
-<p class="modes">
-  <a href="{{ url_for('writes.form', subpath=subpath) if subpath else url_for('writes.form') }}">Guided</a>
-  <span aria-current="true">Edit as JSON</span>
-</p>
 
 {% if absent %}
 <p class="detail" role="status">Nothing is configured at this path yet. Applying a document here creates it.</p>
 {% endif %}
 
-{% if scaffolds %}
+{% if scaffolds and absent %}
 <h2>Start from</h2>
 <ul class="scaffolds">
   {% for sc in scaffolds %}
@@ -75,7 +76,6 @@
     apply anyway.
   </p>
 </section>
-{% elif awaiting_confirmation is defined and awaiting_confirmation == false and findings is defined and request.method == 'POST' %}
 {% endif %}
 
 <form method="post" action="{{ url_for('writes.apply', subpath=subpath) if subpath else url_for('writes.apply') }}">

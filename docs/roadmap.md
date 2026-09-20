@@ -23,8 +23,7 @@ The rails that shipped cover snapshots, conflict detection and CSRF. Still missi
 
 1. **Automatic rollback.** A change that unitd accepts but that breaks the service is not undone
    automatically; the snapshot has to be restored by hand.
-2. **A reason for each change.** Snapshots record what changed and who changed it, but not why.
-3. **Structured editing for nested shapes.** The guided form covers scalar members. Objects and
+2. **Structured editing for nested shapes.** The guided form covers scalar members. Objects and
    arrays — `processes`, `isolation`, route steps — still mean dropping to JSON.
 
 Read-only remains the default and the documented safe deployment.

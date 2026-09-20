@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-15
+
 ### Added
 
 - Opt-in configuration editing behind `FREEUNIT_UI_ENABLE_WRITES`, off by default. When off the

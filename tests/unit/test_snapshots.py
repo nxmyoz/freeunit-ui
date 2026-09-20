@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from freeunit_ui.snapshots import SnapshotError, SnapshotStore
+from freeunit_ui.snapshots import SnapshotError, SnapshotNotFoundError, SnapshotStore
 
 DOC = {"listeners": {"*:8080": {"pass": "applications/blog"}}}
 
@@ -25,6 +25,19 @@ def test_snapshot_is_not_world_readable(tmp_path: Path) -> None:
     snapshot = store.save(DOC)
     assert stat.S_IMODE(snapshot.path.stat().st_mode) == 0o600
     assert stat.S_IMODE(snapshot.path.parent.stat().st_mode) == 0o700
+
+
+def test_a_preexisting_loose_directory_is_tightened(tmp_path: Path) -> None:
+    # mkdir's mode only applies to a directory it actually creates; a
+    # directory left behind more loosely permissioned - by an older version
+    # of this code, or by something else entirely - must still end up 0700
+    # rather than keeping whatever it already had.
+    directory = tmp_path / "snaps"
+    directory.mkdir()
+    directory.chmod(0o755)
+    store = SnapshotStore(directory)
+    store.save(DOC)
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
 
 
 def test_listing_is_newest_first(tmp_path: Path) -> None:
@@ -66,7 +79,7 @@ def test_get_rejects_unknown_names(tmp_path: Path) -> None:
     store = SnapshotStore(tmp_path)
     store.save(DOC)
     for name in ("nope", "../../etc/passwd", "/etc/passwd"):
-        with pytest.raises(SnapshotError):
+        with pytest.raises(SnapshotNotFoundError):
             store.get(name)
 
 

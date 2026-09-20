@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from freeunit_ui.schema import SPEC_VERSION, describe, validation
+from freeunit_ui.schema import SPEC_VERSION, describe, first_word, validation
 from freeunit_ui.schema import scaffolds as catalogue
 from freeunit_ui.schema.scaffolds import Scaffold
 
@@ -158,6 +158,35 @@ def test_type_checks_reach_nested_objects() -> None:
 def test_value_outside_an_enum_is_reported() -> None:
     findings = validation.check(["applications", "x"], {"type": "cobol", "module": "m"})
     assert [f.kind for f in findings] == ["not_in_enum"]
+
+
+@pytest.mark.parametrize("blank", ["", " ", "\t"])
+def test_first_word_of_a_blank_string_does_not_raise(blank: str) -> None:
+    # A bare text.split()[0] raises IndexError on a blank or whitespace-only
+    # string, which a stored "type" can be if unitd ever accepted one - a
+    # plain str.split() call is empty rather than [""] for these inputs.
+    assert first_word(blank) == blank
+
+
+def test_a_blank_type_does_not_crash_branch_selection() -> None:
+    # Goes through _select_branch, which used to call .split()[0] directly.
+    assert describe(["applications", "x"], {"type": " "}) is not None
+
+
+def test_a_blank_type_does_not_crash_the_enum_check() -> None:
+    # Goes through validation.check's kind_unknown generator, the other
+    # unguarded .split()[0] call.
+    findings = validation.check(["applications", "x"], {"type": " ", "module": "m"})
+    assert [f.kind for f in findings] == ["not_in_enum"]
+
+
+def test_unknown_member_names_are_escaped_per_rfc_6901() -> None:
+    # A member name is whatever the operator who wrote the configuration
+    # chose; a "/" or "~" in it must not be read back as a path separator.
+    findings = validation.check(
+        ["applications", "x"], {"type": "python 3", "module": "m", "a/b~c": 1}
+    )
+    assert [f.pointer for f in findings] == ["/a~1b~0c"]
 
 
 def test_an_unrecognised_type_does_not_make_real_members_look_unknown() -> None:

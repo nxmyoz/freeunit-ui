@@ -77,6 +77,19 @@ def test_an_empty_configuration_yields_an_empty_report() -> None:
     assert report.unused_applications == ()
 
 
+def test_a_non_dict_applications_member_does_not_crash() -> None:
+    # Nothing here is authoritative on what the configuration must look
+    # like; a document that does not match this module's expectations has
+    # to degrade gracefully rather than raise.
+    report = analyse({"applications": "not an object"}, set())
+    assert report.unused_applications == ()
+
+
+def test_a_non_dict_listeners_member_does_not_crash() -> None:
+    report = analyse({"listeners": ["not", "an", "object"]}, set())
+    assert report.references == ()
+
+
 def test_a_non_object_configuration_is_tolerated() -> None:
     assert analyse("nonsense", set()).references == ()
 

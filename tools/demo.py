@@ -21,6 +21,9 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
+
+from flask import request
 
 from freeunit_ui.app import create_app
 from freeunit_ui.settings import Settings
@@ -136,8 +139,6 @@ def _resolve(path: str) -> Any:
     for raw in path[len("/config") :].strip("/").split("/"):
         if not raw:
             continue
-        from urllib.parse import unquote
-
         key = unquote(raw)
         if not isinstance(node, dict) or key not in node:
             return None
@@ -177,8 +178,6 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length)
 
         if self.path.startswith("/certificates/"):
-            from urllib.parse import unquote
-
             CERTIFICATES[unquote(self.path[len("/certificates/") :])] = {
                 "key": "stored by the demo",
                 "chain": [
@@ -203,8 +202,6 @@ class Handler(BaseHTTPRequestHandler):
             CONFIG.clear()
             CONFIG.update(document)
         else:
-            from urllib.parse import unquote
-
             node: Any = CONFIG
             for key in [unquote(s) for s in segments[:-1]]:
                 node = node.setdefault(key, {})
@@ -259,8 +256,6 @@ def main() -> None:
         # Stand in for the reverse proxy asserting an identity.
         @app.before_request
         def _pretend_proxy() -> None:
-            from flask import request
-
             request.environ["HTTP_X_DEMO_USER"] = args.user
 
     print(f"fake control API : {sock}")

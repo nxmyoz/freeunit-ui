@@ -40,7 +40,6 @@ def main() -> int:
     print(f"fetching {url}")
     with tempfile.TemporaryDirectory() as tmp:
         archive = Path(tmp) / "src.tar.gz"
-        urllib.request.urlopen(url)  # noqa: S310 - fixed https URL above
         with urllib.request.urlopen(url) as response, archive.open("wb") as handle:  # noqa: S310
             handle.write(response.read())
 

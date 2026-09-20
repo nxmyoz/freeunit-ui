@@ -33,7 +33,8 @@ If you cannot satisfy points 1 and 3, do not deploy this.
   is snapshotted before every change. Snapshots are `0600` in a `0700` directory.
 - No JavaScript is served, which lets the Content-Security-Policy be `default-src 'none'` with
   no `script-src` allowance at all.
-- No session cookie and no secret key, because there is no session state.
+- With writes disabled, there is no session cookie and no secret key: nothing needs signing when
+  there is no CSRF token to protect.
 - Configuration path segments from URLs are validated, not escaped: empty and relative segments
   are rejected before a control API path is built.
 - Responses are sent with `Cache-Control: no-store`, since pages contain server configuration.
@@ -68,10 +69,11 @@ Pre-1.0, only the latest release receives fixes.
 
 ## Reporting a vulnerability
 
-Please report privately to **v@9dt.de** rather than opening a public issue.
+Use this repository's private vulnerability reporting (Security tab → *Report a vulnerability*)
+rather than opening a public issue.
 
-Include the version, your deployment shape (proxy, control socket type), and enough detail to
-reproduce. We aim to acknowledge within 72 hours and to agree a disclosure timeline with you;
-the default is coordinated disclosure once a fix is available.
+Include the version, the deployment shape (proxy, control socket type), and enough detail to
+reproduce. Expect acknowledgement within 72 hours and an agreed disclosure timeline; the default
+is coordinated disclosure once a fix is available.
 
 Please do not test against systems you do not own.

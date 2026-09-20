@@ -83,6 +83,24 @@ def test_unreachable_control_socket_renders_502() -> None:
     assert "unreachable" in response.get_data(as_text=True)
 
 
+def test_unreachable_page_does_not_echo_control_url_credentials() -> None:
+    # `control` can be an http:// URL with embedded userinfo for a TCP
+    # control socket; the unreachable page needs no authentication of its
+    # own, so that credential must never survive into the rendered hint.
+    def explode(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    app = create_app(
+        Settings(control="http://admin:hunter2@127.0.0.1:8443"),
+        client_factory=lambda: make_client(explode),
+    )
+    with app.test_client() as client:
+        body = client.get("/").get_data(as_text=True)
+    assert "hunter2" not in body
+    assert "admin" not in body
+    assert "127.0.0.1:8443" in body
+
+
 def test_api_error_page_shows_pointer_and_suggestion() -> None:
     body = {"detail": "Unknown parameter.", "location": {"path": "/a"}, "suggestion": "pass"}
     app = create_app(
@@ -91,10 +109,27 @@ def test_api_error_page_shows_pointer_and_suggestion() -> None:
     )
     with app.test_client() as client:
         response = client.get("/config")
-    assert response.status_code == 502
+    # unitd answered and rejected the request - that is a 400, not a gateway
+    # failure, and reporting it as one would blame unitd for something it
+    # did correctly.
+    assert response.status_code == 400
     text = response.get_data(as_text=True)
     assert "/a" in text
     assert "pass" in text
+
+
+def test_a_5xx_from_unitd_itself_is_a_502() -> None:
+    # Unlike a 4xx rejection, a 5xx means unitd itself failed to handle a
+    # request it accepted as well formed - that is a real upstream problem.
+    app = create_app(
+        Settings(),
+        client_factory=lambda: make_client(
+            make_handler(error_body={"detail": "oops"}, status_code=503)
+        ),
+    )
+    with app.test_client() as client:
+        response = client.get("/config")
+    assert response.status_code == 502
 
 
 @pytest.mark.parametrize("path", ["/", "/config", "/certificates"])

@@ -13,6 +13,7 @@ from freeunit_ui.app import create_app
 from freeunit_ui.settings import ConfigurationError, Settings
 from freeunit_ui.unit import UnitWriteClient
 from tests.conftest import DEFAULT_ROUTES, make_client, make_handler
+from tests.web.conftest import token_from
 
 HEADER = "X-Forwarded-User"
 
@@ -91,10 +92,7 @@ def test_snapshots_record_who_made_the_change(tmp_path: Path) -> None:
     headers = {HEADER: "alice@example.com"}
     client: FlaskClient
     with app.test_client() as client:
-        page = client.get("/edit/", headers=headers).get_data(as_text=True)
-        marker = 'name="csrf_token" value="'
-        start = page.index(marker) + len(marker)
-        token = page[start : page.index('"', start)]
+        token = token_from(client, "/edit/", headers=headers)
         baseline_page = client.get("/config", headers=headers)
         assert baseline_page.status_code == 200
 

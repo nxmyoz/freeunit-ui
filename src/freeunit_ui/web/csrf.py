@@ -48,6 +48,9 @@ def validate(submitted: str | None) -> None:
     if not isinstance(expected, str) or not expected:
         msg = "No CSRF token in session; reload the form and try again."
         raise CsrfError(msg)
-    if not submitted or not compare_digest(expected, submitted):
+    # compare_digest rejects non-ASCII str arguments outright, and a submitted
+    # token is attacker-controlled input - comparing the utf-8 bytes instead
+    # keeps a stray non-ASCII character a mismatch rather than a 500.
+    if not submitted or not compare_digest(expected.encode(), submitted.encode()):
         msg = "CSRF token missing or invalid."
         raise CsrfError(msg)

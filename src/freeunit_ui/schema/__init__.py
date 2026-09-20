@@ -24,6 +24,20 @@ _HERE = Path(__file__).parent
 #: FreeUnit release the vendored specification came from.
 SPEC_VERSION = (_HERE / "VERSION").read_text(encoding="utf-8").strip()
 
+
+def first_word(text: str) -> str:
+    """Return the leading word of ``text``, or ``text`` itself if there isn't one.
+
+    Application types carry a version, as in "python 3", so callers that
+    match against an enum of bare names need just the first word. A plain
+    ``text.split()[0]`` raises ``IndexError`` on an empty or whitespace-only
+    string; falling back to ``text`` keeps this total, and a blank or
+    all-whitespace value still correctly fails to match any real enum entry.
+    """
+    parts = text.split()
+    return parts[0] if parts else text
+
+
 #: ``type`` values map onto per-language schemas by convention, not by anything
 #: the specification states, so the mapping is written out rather than guessed.
 _APPLICATION_SCHEMAS = {
@@ -144,7 +158,7 @@ def _select_branch(node: Any, document: Any) -> Any:
 
     kind = ""
     if isinstance(document, dict) and isinstance(document.get("type"), str):
-        kind = document["type"].split()[0]
+        kind = first_word(document["type"])
     schema_name = _APPLICATION_SCHEMAS.get(kind)
     if schema_name:
         return {"$ref": f"#/components/schemas/{schema_name}"}

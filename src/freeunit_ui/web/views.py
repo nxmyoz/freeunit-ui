@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import urlsplit
 
 from flask import Blueprint, render_template, request
 
 from freeunit_ui.extensions import get_client, get_settings, get_snapshots
 from freeunit_ui.references import analyse
 from freeunit_ui.schema import SPEC_VERSION, describe
-from freeunit_ui.snapshots import SnapshotError
+from freeunit_ui.snapshots import SnapshotError, SnapshotNotFoundError
 from freeunit_ui.unit.errors import UnitAPIError, UnitConnectionError, UnitError
 
 from .auth import NotAuthenticatedError
@@ -18,6 +19,21 @@ from .csrf import issue_token
 from .paths import InvalidPathError, breadcrumbs, split_config_path, to_api_path
 
 bp = Blueprint("web", __name__)
+
+
+def _without_userinfo(control: str) -> str:
+    """Strip embedded credentials from a control URL before it reaches a page.
+
+    ``control`` can be ``http://user:pass@host:port`` for a TCP control
+    socket, and this string is shown on the "unreachable" error page - which
+    needs no authentication of its own - so any userinfo in it must not
+    survive to be displayed.
+    """
+    parsed = urlsplit(control)
+    if not parsed.hostname:
+        return control
+    netloc = parsed.hostname if parsed.port is None else f"{parsed.hostname}:{parsed.port}"
+    return parsed._replace(netloc=netloc).geturl()
 
 
 def _pretty(payload: Any, *, limit: int) -> tuple[str, bool]:
@@ -79,7 +95,7 @@ def config(subpath: str = "") -> str:
             undo = get_snapshots().get(request.args["undo"])
         except SnapshotError:
             undo = None
-    document, truncated = _pretty(payload, limit=get_settings().max_render_chars)
+    document, truncated = _pretty(payload, limit=settings.max_render_chars)
     return render_template(
         "config.html",
         segments=segments,
@@ -149,10 +165,21 @@ def _too_large(error: object) -> tuple[str, int]:
     )
 
 
-@bp.app_errorhandler(SnapshotError)
-def _snapshot_missing(error: SnapshotError) -> tuple[str, int]:
+@bp.app_errorhandler(SnapshotNotFoundError)
+def _snapshot_missing(error: SnapshotNotFoundError) -> tuple[str, int]:
     """Render a 404 for a snapshot that does not exist."""
     return render_template("error.html", title="No such snapshot", detail=str(error)), 404
+
+
+@bp.app_errorhandler(SnapshotError)
+def _snapshot_failed(error: SnapshotError) -> tuple[str, int]:
+    """Render a 500 when the snapshot store itself could not be read or written.
+
+    Distinct from the 404 above: a disk-full or permission failure here means
+    a change may have gone unrecorded, which is a server problem, not a
+    request for something that was never there.
+    """
+    return render_template("error.html", title="Snapshot storage failed", detail=str(error)), 500
 
 
 @bp.app_errorhandler(NotAuthenticatedError)
@@ -177,9 +204,9 @@ def _unreachable(error: UnitConnectionError) -> tuple[str, int]:
             title="FreeUnit is unreachable",
             detail=str(error),
             hint=(
-                f"Checked {settings.control}. Confirm unitd is running and that this "
-                "process runs as root or as the user unitd runs as: since 1.36.0 the "
-                "control socket rejects other peers."
+                f"Checked {_without_userinfo(settings.control)}. Confirm unitd is running "
+                "and that this process runs as root or as the user unitd runs as: since "
+                "1.36.0 the control socket rejects other peers."
             ),
         ),
         502,
@@ -188,8 +215,15 @@ def _unreachable(error: UnitConnectionError) -> tuple[str, int]:
 
 @bp.app_errorhandler(UnitAPIError)
 def _api_error(error: UnitAPIError) -> tuple[str, int]:
-    """Render an error page for a rejected control API request."""
-    status = 404 if error.status_code == 404 else 502
+    """Render an error page for a rejected control API request.
+
+    unitd already answered - reaching it is UnitConnectionError, handled
+    separately - so this is not a gateway failure. Its own status is relayed
+    as-is for the ordinary 4xx rejections (a bad document, an unknown path),
+    and only collapsed to 502 for a 5xx from unitd itself, which is a real
+    upstream problem this process did not cause.
+    """
+    status = error.status_code if 400 <= error.status_code < 500 else 502
     return (
         render_template(
             "error.html",

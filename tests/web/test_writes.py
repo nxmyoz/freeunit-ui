@@ -16,16 +16,7 @@ from freeunit_ui.settings import ConfigurationError, Settings
 from freeunit_ui.unit import UnitWriteClient
 from freeunit_ui.web.writes import baseline_digest
 from tests.conftest import CONFIG_PAYLOAD, DEFAULT_ROUTES
-from tests.web.conftest import SECRET, Recorder
-
-
-def _token(client: FlaskClient, url: str = "/edit/") -> str:
-    """Load a form and extract its CSRF token."""
-    body = client.get(url).get_data(as_text=True)
-    marker = 'name="csrf_token" value="'
-    start = body.index(marker) + len(marker)
-    return body[start : body.index('"', start)]
-
+from tests.web.conftest import SECRET, Recorder, token_from
 
 # --- gating ---------------------------------------------------------------
 
@@ -65,7 +56,7 @@ def test_apply_without_a_token_is_rejected(writer: FlaskClient, recorder: Record
 
 
 def test_apply_with_a_wrong_token_is_rejected(writer: FlaskClient, recorder: Recorder) -> None:
-    _token(writer)
+    token_from(writer, "/edit/")
     response = writer.post(
         "/edit/", data={"csrf_token": "forged", "document": "{}", "baseline": "x"}
     )
@@ -78,13 +69,27 @@ def test_restore_requires_a_token(writer: FlaskClient, recorder: Recorder) -> No
     assert recorder.writes == []
 
 
+def test_a_non_ascii_token_is_a_mismatch_not_a_crash(
+    writer: FlaskClient, recorder: Recorder
+) -> None:
+    # hmac.compare_digest raises TypeError on a str argument outside ASCII,
+    # and the submitted token is attacker-controlled - it must come back as
+    # the usual 400 rejection, not a 500.
+    token_from(writer, "/edit/")
+    response = writer.post(
+        "/edit/", data={"csrf_token": "föörged", "document": "{}", "baseline": "x"}
+    )
+    assert response.status_code == 400
+    assert recorder.writes == []
+
+
 # --- applying -------------------------------------------------------------
 
 
 def test_apply_writes_and_snapshots_first(
     writer: FlaskClient, recorder: Recorder, write_app: Flask
 ) -> None:
-    token = _token(writer, "/edit/listeners")
+    token = token_from(writer, "/edit/listeners")
     new = {"*:9090": {"pass": "applications/blog"}}
     response = writer.post(
         "/edit/listeners",
@@ -104,10 +109,31 @@ def test_apply_writes_and_snapshots_first(
     assert snapshots[0].load() == CONFIG_PAYLOAD
 
 
+def test_a_document_between_500kb_and_the_upload_limit_is_accepted(
+    writer: FlaskClient, recorder: Recorder
+) -> None:
+    # Werkzeug caps non-file form fields at 500 KB by default, independent of
+    # MAX_CONTENT_LENGTH. A document submitted through this plain <textarea>
+    # form must be bound by max_upload_bytes (1 MiB by default here), the
+    # limit this interface actually documents, not Werkzeug's own default.
+    token = token_from(writer, "/edit/listeners")
+    padded = {"*:9090": {"pass": "applications/blog"}, "padding": "x" * 600_000}
+    response = writer.post(
+        "/edit/listeners",
+        data={
+            "csrf_token": token,
+            "baseline": baseline_digest(CONFIG_PAYLOAD["listeners"]),
+            "document": json.dumps(padded),
+        },
+    )
+    assert response.status_code == 302
+    assert recorder.writes == [("PUT", "/config/listeners", padded)]
+
+
 def test_invalid_json_is_rejected_before_anything_is_written(
     writer: FlaskClient, recorder: Recorder
 ) -> None:
-    token = _token(writer)
+    token = token_from(writer, "/edit/")
     response = writer.post(
         "/edit/",
         data={"csrf_token": token, "baseline": "x", "document": "{ not json"},
@@ -118,7 +144,7 @@ def test_invalid_json_is_rejected_before_anything_is_written(
 
 
 def test_stale_baseline_is_a_conflict(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer)
+    token = token_from(writer, "/edit/")
     response = writer.post(
         "/edit/",
         data={"csrf_token": token, "baseline": "stale", "document": "{}"},
@@ -160,7 +186,7 @@ def test_api_rejection_surfaces_the_json_pointer(tmp_path: Path) -> None:
         ),
     )
     with app.test_client() as client:
-        token = _token(client)
+        token = token_from(client, "/edit/")
         response = client.post(
             "/edit/",
             data={
@@ -174,6 +200,45 @@ def test_api_rejection_surfaces_the_json_pointer(tmp_path: Path) -> None:
     assert "pass" in text
 
 
+def test_a_snapshot_storage_failure_is_a_500_not_a_404(tmp_path: Path) -> None:
+    # SnapshotStore.save() and SnapshotNotFoundError.get() used to share one
+    # exception type, so a disk-full or permission failure while writing a
+    # snapshot was reported the same way as "that snapshot name does not
+    # exist" - a 404 that hides a real storage problem behind a wrong error.
+    blocker = tmp_path / "blocked"
+    blocker.write_text("occupying the path the snapshot directory needs")
+
+    app = create_app(
+        Settings(
+            enable_writes=True,
+            secret_key=SECRET,
+            snapshot_dir=blocker / "snaps",
+            session_cookie_secure=False,
+        ),
+        client_factory=lambda: UnitWriteClient(
+            httpx.Client(
+                transport=httpx.MockTransport(Recorder(DEFAULT_ROUTES)), base_url="http://u"
+            )
+        ),
+        write_client_factory=lambda: UnitWriteClient(
+            httpx.Client(
+                transport=httpx.MockTransport(Recorder(DEFAULT_ROUTES)), base_url="http://u"
+            )
+        ),
+    )
+    with app.test_client() as client:
+        token = token_from(client, "/edit/")
+        response = client.post(
+            "/edit/",
+            data={
+                "csrf_token": token,
+                "baseline": baseline_digest(CONFIG_PAYLOAD),
+                "document": "{}",
+            },
+        )
+    assert response.status_code == 500
+
+
 # --- snapshots ------------------------------------------------------------
 
 
@@ -183,7 +248,7 @@ def test_restore_replaces_the_whole_configuration(
     store = write_app.extensions["freeunit_ui.snapshots"]
     saved = store.save({"listeners": {}})
 
-    token = _token(writer, "/snapshots")
+    token = token_from(writer, "/snapshots")
     response = writer.post(f"/snapshots/{saved.name}/restore", data={"csrf_token": token})
     assert response.status_code == 302
     assert recorder.writes == [("PUT", "/config", {"listeners": {}})]
@@ -218,6 +283,21 @@ def test_guidance_follows_the_application_type(web: FlaskClient) -> None:
     assert "Document root" not in body
 
 
+def test_the_reference_panel_is_not_inside_the_page_title(writer: FlaskClient) -> None:
+    # Regression test: the reference panel ("Members here", the table of
+    # what each member means) used to be emitted inside {% block title %},
+    # so its whole content - including its own markup - ended up inside
+    # <title>...</title> instead of the page body, where a browser would
+    # never render it.
+    body = writer.get("/edit/applications/blog").get_data(as_text=True)
+    title_start = body.index("<title>") + len("<title>")
+    title_end = body.index("</title>")
+    title = body[title_start:title_end]
+    assert "<section" not in title
+    assert "Members here" not in title
+    assert "Members here" in body[title_end:]
+
+
 def test_editing_an_absent_member_offers_scaffolds(writer: FlaskClient) -> None:
     body = writer.get("/edit/applications/brand-new").get_data(as_text=True)
     assert "Nothing is configured at this path yet" in body
@@ -236,10 +316,29 @@ def test_an_unknown_template_is_ignored(writer: FlaskClient) -> None:
     assert writer.get("/edit/applications/x?template=nope").status_code == 200
 
 
+def test_an_existing_object_does_not_offer_scaffolds(writer: FlaskClient) -> None:
+    # "Start from" is for something that does not exist yet; offering it on
+    # an object that already has real content invites clicking it by habit
+    # and silently swapping the editor's contents out from under it.
+    body = writer.get("/edit/applications/blog").get_data(as_text=True)
+    assert "Start from" not in body
+    assert "Python application" not in body
+
+
+def test_a_template_on_an_existing_object_is_ignored(writer: FlaskClient) -> None:
+    # Even a hand-crafted ?template= must not be able to swap a real,
+    # existing object's editor contents for a fresh scaffold: if applied
+    # unnoticed, the baseline still matches and the real object is
+    # silently replaced.
+    body = writer.get("/edit/applications/blog?template=python-application").get_data(as_text=True)
+    assert "/srv/blog" in body
+    assert "&#34;callable&#34;" not in body
+
+
 def test_creating_an_absent_member_applies(writer: FlaskClient, recorder: Recorder) -> None:
     from freeunit_ui.web.writes import baseline_digest
 
-    token = _token(writer, "/edit/applications/brand-new")
+    token = token_from(writer, "/edit/applications/brand-new")
     response = writer.post(
         "/edit/applications/brand-new",
         data={
@@ -259,7 +358,7 @@ def test_creating_an_absent_member_applies(writer: FlaskClient, recorder: Record
 
 
 def test_check_button_reports_without_applying(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer, "/edit/applications/new")
+    token = token_from(writer, "/edit/applications/new")
     response = writer.post(
         "/edit/applications/new",
         data={
@@ -277,7 +376,7 @@ def test_check_button_reports_without_applying(writer: FlaskClient, recorder: Re
 def test_apply_with_findings_asks_before_writing(writer: FlaskClient, recorder: Recorder) -> None:
     from freeunit_ui.web.writes import baseline_digest
 
-    token = _token(writer, "/edit/applications/new")
+    token = token_from(writer, "/edit/applications/new")
     response = writer.post(
         "/edit/applications/new",
         data={
@@ -299,7 +398,7 @@ def test_confirming_applies_despite_findings(writer: FlaskClient, recorder: Reco
     # bundled specification may simply be older than the server.
     from freeunit_ui.web.writes import baseline_digest
 
-    token = _token(writer, "/edit/applications/new")
+    token = token_from(writer, "/edit/applications/new")
     response = writer.post(
         "/edit/applications/new",
         data={
@@ -319,7 +418,7 @@ def test_a_clean_document_applies_without_confirmation(
 ) -> None:
     from freeunit_ui.web.writes import baseline_digest
 
-    token = _token(writer, "/edit/applications/new")
+    token = token_from(writer, "/edit/applications/new")
     response = writer.post(
         "/edit/applications/new",
         data={
@@ -340,7 +439,7 @@ def _apply(client: FlaskClient, subpath: str, document: str, **extra: str) -> An
     """Apply a document, confirming past any advisory findings."""
     from freeunit_ui.web.writes import baseline_digest
 
-    token = _token(client, f"/edit/{subpath}")
+    token = token_from(client, f"/edit/{subpath}")
     data = {
         "csrf_token": token,
         "baseline": baseline_digest(None),
@@ -423,7 +522,7 @@ def test_a_stored_document_differing_from_what_was_sent_is_reported(tmp_path: Pa
     with app.test_client() as client:
         from freeunit_ui.web.writes import baseline_digest
 
-        token = _token(client, "/edit/applications/lossy")
+        token = token_from(client, "/edit/applications/lossy")
         response = client.post(
             "/edit/applications/lossy",
             data={
@@ -442,7 +541,7 @@ def test_a_stored_document_differing_from_what_was_sent_is_reported(tmp_path: Pa
 def test_restoring_records_why(writer: FlaskClient, write_app: Flask) -> None:
     store = write_app.extensions["freeunit_ui.snapshots"]
     saved = store.save({"listeners": {}})
-    token = _token(writer, "/snapshots")
+    token = token_from(writer, "/snapshots")
     writer.post(f"/snapshots/{saved.name}/restore", data={"csrf_token": token})
     assert store.list()[0].reason == f"before restoring snapshot {saved.name}"
 

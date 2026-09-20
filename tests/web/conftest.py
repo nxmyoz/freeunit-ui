@@ -75,3 +75,11 @@ def write_app(recorder: Recorder, tmp_path: Path) -> Flask:
 def writer(write_app: Flask) -> Iterator[FlaskClient]:
     with write_app.test_client() as client:
         yield client
+
+
+def token_from(client: FlaskClient, url: str, *, headers: dict[str, str] | None = None) -> str:
+    """Load a form and extract its CSRF token."""
+    body = client.get(url, headers=headers).get_data(as_text=True)
+    marker = 'name="csrf_token" value="'
+    start = body.index(marker) + len(marker)
+    return body[start : body.index('"', start)]

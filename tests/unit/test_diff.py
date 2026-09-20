@@ -72,6 +72,17 @@ def test_rendering_keeps_strings_bare_and_serialises_the_rest() -> None:
     assert compare({"a": 1}, {"a": 1, "b": 2})[0].before_text == ""
 
 
+def test_a_key_containing_a_slash_or_tilde_is_escaped_per_rfc_6901() -> None:
+    # A unix-socket listener address, for example "unix:/run/app.sock", is a
+    # real key that contains "/" - an unescaped pointer would then read as
+    # addressing a deeper member than the one that actually changed.
+    before = {"listeners": {"unix:/run/app.sock": {"pass": "a"}}}
+    after = {"listeners": {"unix:/run/app.sock": {"pass": "b"}}}
+    assert [c.pointer for c in compare(before, after)] == ["/listeners/unix:~1run~1app.sock/pass"]
+
+    assert [c.pointer for c in compare({"a~b": 1}, {"a~b": 2})] == ["/a~0b"]
+
+
 def test_deep_nesting_is_bounded() -> None:
     def nest(depth: int, leaf: Any) -> Any:
         node = leaf

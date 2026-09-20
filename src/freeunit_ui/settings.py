@@ -79,10 +79,10 @@ class Settings(BaseSettings):
     enable_writes: bool = Field(
         default=False,
         description=(
-            "Allow changing the FreeUnit configuration. Off by default: writing "
-            "configuration is equivalent to root, because a configuration document "
-            "can define an application with an arbitrary executable and user. When "
-            "off, no write endpoint is registered at all."
+            "Allow changing the FreeUnit configuration. Off by default: a configuration "
+            "document can point an application at any executable and any user, so "
+            "writing one is not a lesser privilege than running commands directly. "
+            "When off, no write endpoint is registered at all."
         ),
     )
     secret_key: str = Field(

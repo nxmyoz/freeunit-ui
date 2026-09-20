@@ -7,12 +7,7 @@ from the client's point of view, so the only thing that varies is the transport.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import httpx
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 # Hostname used for UNIX socket requests. It never leaves the process: httpx
 # needs a syntactically valid URL, but the transport ignores the authority.
@@ -43,12 +38,3 @@ def build_client(control: str, *, timeout: float = 10.0) -> httpx.Client:
 
     msg = f"Control endpoint must be an absolute socket path or an http(s) URL, got {control!r}"
     raise ValueError(msg)
-
-
-def iter_socket_candidates() -> Iterator[str]:
-    """Yield the control socket paths distributions commonly use, best first."""
-    yield "/run/freeunit.sock"
-    yield "/var/run/freeunit.sock"
-    yield "/run/unit.sock"
-    yield "/var/run/unit.sock"
-    yield "/var/run/control.unit.sock"

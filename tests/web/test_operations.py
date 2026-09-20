@@ -7,15 +7,7 @@ from typing import Any
 
 from flask.testing import FlaskClient
 
-from tests.web.conftest import Recorder
-
-
-def _token(client: FlaskClient, url: str) -> str:
-    body = client.get(url).get_data(as_text=True)
-    marker = 'name="csrf_token" value="'
-    start = body.index(marker) + len(marker)
-    return body[start : body.index('"', start)]
-
+from tests.web.conftest import Recorder, token_from
 
 # --- restart ---------------------------------------------------------------
 
@@ -28,7 +20,7 @@ def test_restart_is_offered_only_when_writes_are_enabled(
 
 
 def test_restarting_calls_the_control_endpoint(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer, "/")
+    token = token_from(writer, "/")
     response = writer.post("/applications/blog/restart", data={"csrf_token": token})
     assert response.status_code == 302
     assert recorder.writes == [("GET", "/control/applications/blog/restart", None)]
@@ -36,7 +28,7 @@ def test_restarting_calls_the_control_endpoint(writer: FlaskClient, recorder: Re
 
 def test_restart_takes_no_snapshot(writer: FlaskClient, write_app: Any, recorder: Recorder) -> None:
     # Restarting stores nothing, so there is nothing to roll back to.
-    token = _token(writer, "/")
+    token = token_from(writer, "/")
     writer.post("/applications/blog/restart", data={"csrf_token": token})
     assert write_app.extensions["freeunit_ui.snapshots"].list() == []
 
@@ -60,7 +52,7 @@ def test_the_overview_confirms_a_restart(writer: FlaskClient) -> None:
 
 
 def test_uploading_a_bundle_stores_it(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     pem = b"-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----\n"
     response = writer.post(
         "/certificates/upload",
@@ -77,7 +69,7 @@ def test_uploading_a_bundle_stores_it(writer: FlaskClient, recorder: Recorder) -
 
 
 def test_a_pasted_bundle_works_too(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     response = writer.post(
         "/certificates/upload",
         data={
@@ -91,7 +83,7 @@ def test_a_pasted_bundle_works_too(writer: FlaskClient, recorder: Recorder) -> N
 
 
 def test_a_bundle_that_is_not_pem_is_refused(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     response = writer.post(
         "/certificates/upload",
         data={"csrf_token": token, "name": "junk", "pasted": "this is not a certificate"},
@@ -102,7 +94,7 @@ def test_a_bundle_that_is_not_pem_is_refused(writer: FlaskClient, recorder: Reco
 
 
 def test_a_name_with_a_slash_is_refused(writer: FlaskClient, recorder: Recorder) -> None:
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     response = writer.post(
         "/certificates/upload",
         data={"csrf_token": token, "name": "../escape", "pasted": "-----BEGIN X-----"},
@@ -113,7 +105,7 @@ def test_a_name_with_a_slash_is_refused(writer: FlaskClient, recorder: Recorder)
 
 def test_key_material_is_never_echoed_back(writer: FlaskClient) -> None:
     # A failed upload must not redisplay the private key in a page.
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     secret = "-----BEGIN PRIVATE KEY-----\nSUPERSECRETKEYMATERIAL\n"
     response = writer.post(
         "/certificates/upload",
@@ -126,7 +118,7 @@ def test_key_material_is_never_echoed_back(writer: FlaskClient) -> None:
 def test_upload_takes_no_snapshot(writer: FlaskClient, write_app: Any) -> None:
     # Snapshots are world-readable to root and kept on disk; a private key
     # must never end up in one.
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     writer.post(
         "/certificates/upload",
         data={"csrf_token": token, "name": "k", "pasted": "-----BEGIN PRIVATE KEY-----\nx"},
@@ -157,7 +149,7 @@ def test_an_oversized_upload_is_refused_before_it_is_read(
     # limit has to be enforced by the server rather than by this code.
     import io as _io
 
-    token = _token(writer, "/certificates/upload")
+    token = token_from(writer, "/certificates/upload")
     huge = b"-----BEGIN CERTIFICATE-----\n" + b"A" * 2_000_000
     response = writer.post(
         "/certificates/upload",

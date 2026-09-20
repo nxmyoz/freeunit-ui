@@ -114,11 +114,13 @@ def analyse(config: Any, certificates: set[str] | None = None) -> Report:
         return Report()
 
     stored = certificates or set()
-    applications = set(config.get("applications") or {})
+    applications_value = config.get("applications")
+    applications = set(applications_value) if isinstance(applications_value, dict) else set()
     routes = config.get("routes")
     references: list[Reference] = []
 
-    for address, listener in (config.get("listeners") or {}).items():
+    listeners = config.get("listeners")
+    for address, listener in listeners.items() if isinstance(listeners, dict) else ():
         if not isinstance(listener, dict):
             continue
         if isinstance(listener.get("pass"), str):
