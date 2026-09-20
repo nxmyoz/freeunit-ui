@@ -177,8 +177,14 @@ a:hover { color: var(--accent-hover); }
 
 /* The wordmark, exactly as app.css builds it: mono 600, the first half in
  * the accent, the rest stepped back to muted 400, and upstream's terminal
- * cursor held still after it. Drawn rather than typed, so there is no glyph
- * for a screen reader to announce. */
+ * cursor after it. Drawn rather than typed, so there is no glyph for a
+ * screen reader to announce.
+ *
+ * Blinking is scoped to the hero instance only (see .hero .brand::after
+ * below), matching upstream's own real behaviour: freeunit.org's cursor
+ * lives in the one-time hero moment, not in page chrome you'd otherwise
+ * stare at for as long as the tab is open. The header nav's copy of this
+ * same element stays a held-still block. */
 .brand {
   font-family: var(--mono);
   font-weight: 600;
@@ -299,6 +305,18 @@ section > .wrap > :last-child { margin-bottom: 0; }
 
 .hero { padding-block: clamp(2.75rem, 8vw, 5rem) 3rem; }
 .hero h1 .brand { font-size: inherit; }
+
+/* The one place the cursor blinks - a hard on/off snap via steps(1), the
+ * way a terminal cursor actually cuts rather than fades. */
+.hero .brand::after {
+  animation: cursor-blink 1s steps(1) infinite;
+}
+@keyframes cursor-blink {
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero .brand::after { animation: none; }
+}
 .hero .lede { margin: 0 0 1.5rem; font-size: clamp(1.05rem, 2.4vw, 1.3rem); }
 .hero p { font-size: 1rem; }
 
