@@ -170,7 +170,7 @@ the authentication:
 ```mermaid
 flowchart LR
     A["browser"] -- mTLS --> B["nginx"]
-    B -- unix socket --> C["freeunit-ui<br/>(run by FreeUnit)"]
+    B -- unix socket --> C["freeunit-ui (run by FreeUnit)"]
     C -- control socket --> D["unitd"]
 ```
 
