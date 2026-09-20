@@ -1,33 +1,81 @@
-/* FreeUnit UI — single stylesheet, no JavaScript anywhere in this interface. */
+/* FreeUnit UI — single stylesheet, no JavaScript anywhere in this interface.
+ *
+ * Colour and type follow FreeUnit's own identity (freeunit.org): the warm
+ * off-white ground, the deep green accent, IBM Plex Mono for anything
+ * structural or machine-written and IBM Plex Sans for prose. Upstream has no
+ * logo, so neither does this: the wordmark, the hairline rules under section
+ * labels, the square corners and the block cursor are the whole vocabulary.
+ *
+ * The fonts are named, never fetched. The Content-Security-Policy here is
+ * `default-src 'none'` with no font-src, so a web font would have to weaken it
+ * — not a trade worth making in an interface that configures a web server as
+ * root. Machines with IBM Plex installed get it; everything else falls back to
+ * the system faces, which the layout is sized to survive.
+ *
+ * Upstream ships light only. The dark palette is derived from it: the same
+ * warm neutrals inverted, the green lifted until it carries 4.5:1 on a dark
+ * ground, and the accent fill taking dark text instead of white.
+ */
 
 :root {
   color-scheme: light dark;
-  --bg: #f7f7f8;
+
+  /* freeunit.org, verbatim */
+  --bg: #f9f8f6;
   --surface: #ffffff;
-  --border: #d9dbe0;
-  --text: #1b1d22;
-  --muted: #5c6169;
-  --accent: #1f5fa9;
-  --warn-bg: #fdf3d8;
-  --warn-text: #6b4b00;
-  --bad-bg: #fbe3e3;
-  --bad-text: #8a1c1c;
-  --radius: 8px;
+  --border: #e0ddd8;
+  --text: #1a1a1a;
+  --muted: #6b6560;
+  --accent: #006644;
+  --accent-light: #e8f5f0;
+  --accent-hover: #005035;
+
+  /* derived: text on an accent fill, and a control boundary that clears the
+   * 3:1 of WCAG 1.4.11 — upstream's hairline is decorative, a form field's
+   * edge is not */
+  --on-accent: #ffffff;
+  --field: #8b837a;
+
+  /* status, on upstream's own warning and danger hues */
+  --warn-bg: #fbf0da;
+  --warn-text: #7a4a06;
+  --bad-bg: #fce8e6;
+  --bad-text: #8f2018;
+
+  /* upstream's code block: dark on the light page, deliberately */
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --code-muted: #9a938c;
+  --code-border: #333333;
+
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --gap: 1rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16181d;
-    --surface: #1e2128;
-    --border: #333843;
-    --text: #e8eaed;
-    --muted: #a2a9b4;
-    --accent: #7fb2f0;
-    --warn-bg: #3d3212;
-    --warn-text: #f2d377;
-    --bad-bg: #3f1f1f;
-    --bad-text: #f3a3a3;
+    --bg: #141310;
+    --surface: #1c1a17;
+    --border: #332f2a;
+    --text: #ece9e4;
+    --muted: #a9a29a;
+    --accent: #4cb98a;
+    --accent-light: #16281f;
+    --accent-hover: #6fcfa3;
+
+    --on-accent: #0c1410;
+    --field: #6d665e;
+
+    --warn-bg: #332812;
+    --warn-text: #f0c878;
+    --bad-bg: #3a1d1a;
+    --bad-text: #f4a9a0;
+
+    --code-bg: #100f0e;
+    --code-text: #d4d4d4;
+    --code-muted: #9a938c;
+    --code-border: #6d665e;
   }
 }
 
@@ -37,7 +85,10 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
 .skip {
@@ -51,8 +102,11 @@ body {
   padding: 0.6rem 1rem;
   background: var(--surface);
   border: 2px solid var(--accent);
-  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.8rem;
 }
+
+/* Shell */
 
 header.site, footer.site {
   background: var(--surface);
@@ -63,7 +117,8 @@ footer.site {
   border-top: 1px solid var(--border);
   margin-top: 3rem;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
 }
 
 header.site nav, main, footer.site p {
@@ -71,6 +126,8 @@ header.site nav, main, footer.site p {
   margin-inline: auto;
   padding: var(--gap) 1.25rem;
 }
+main { padding-block: 1.75rem 2.5rem; }
+footer.site p { padding-block: 1.25rem; }
 
 header.site nav {
   display: flex;
@@ -78,7 +135,33 @@ header.site nav {
   gap: 1.5rem;
   flex-wrap: wrap;
 }
-.brand { font-weight: 700; letter-spacing: 0.01em; }
+
+/* The wordmark, built the way freeunit.org builds its own: mono 600, the
+ * first half in the accent, the rest stepped back to muted 400. The block
+ * after it is upstream's terminal cursor, held still — a caret that blinks
+ * forever is a landing-page flourish, not something to put on a page an
+ * operator keeps open on a second monitor. It is drawn rather than typed, so
+ * there is no glyph for a screen reader to announce. */
+.brand {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+.brand span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.brand::after {
+  content: "";
+  display: inline-block;
+  width: 0.42em;
+  height: 0.95em;
+  margin-left: 0.3em;
+  background: var(--accent);
+  vertical-align: -0.1em;
+}
 
 header.site ul {
   display: flex;
@@ -86,29 +169,78 @@ header.site ul {
   list-style: none;
   margin: 0;
   padding: 0;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
 }
 header.site a {
   color: var(--muted);
   text-decoration: none;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
   border-bottom: 2px solid transparent;
 }
 header.site a:hover { color: var(--text); }
 header.site a[aria-current="page"] {
-  color: var(--text);
+  color: var(--accent);
   border-bottom-color: var(--accent);
 }
 
-a { color: var(--accent); }
+.identity {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-h1 { font-size: 1.6rem; margin: 0 0 1.5rem; }
-h2 { font-size: 1.1rem; margin: 2rem 0 0.75rem; }
+/* Headings. h2 is upstream's section label: a small mono caption in the
+ * accent, carried across the column by a hairline. */
 
+h1 {
+  font-family: var(--mono);
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 1.5rem;
+}
+
+h2 {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 2.25rem 0 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+h2::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+code { font-family: var(--mono); font-size: 0.9em; }
+
+/* Counters */
+
+/* Counters sit in one hairline band, the way upstream's grids do. The seams
+ * come from each cell overlapping its neighbour by the width of a border
+ * rather than from a painted gap, so a short row (two telemetry counters, say)
+ * keeps the same cell width as a full one instead of stretching across the
+ * page. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
   list-style: none;
   margin: 0;
   padding: 0;
@@ -116,38 +248,52 @@ h2 { font-size: 1.1rem; margin: 2rem 0 0.75rem; }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.9rem 1rem;
+  margin: 0 -1px -1px 0;
+  padding: 0.95rem 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
-.card .figure { font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.card .label { color: var(--muted); font-size: 0.8rem; }
-.card.bad { background: var(--bad-bg); border-color: var(--bad-text); }
+.card .figure {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.card .label { color: var(--muted); font-size: 0.78rem; }
+.card.bad { background: var(--bad-bg); }
 .card.bad .label, .card.bad .figure { color: var(--bad-text); }
 
 .scroller { overflow-x: auto; }
+
+/* Tables */
 
 table {
   width: 100%;
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
 }
 th, td {
   text-align: left;
-  padding: 0.6rem 0.85rem;
+  padding: 0.62rem 0.85rem;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
 }
 thead th {
-  font-size: 0.78rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
   color: var(--muted);
+  background: var(--bg);
+}
+tbody th[scope="row"] {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 
@@ -155,16 +301,17 @@ td.warn { background: var(--warn-bg); color: var(--warn-text); font-weight: 600;
 td.bad  { background: var(--bad-bg);  color: var(--bad-text);  font-weight: 600; }
 
 .empty, .hint { color: var(--muted); }
+.hint { font-size: 0.875rem; }
 
 .crumbs ol {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   list-style: none;
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
   padding: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
 }
 .crumbs li + li::before { content: "/"; color: var(--muted); margin-right: 0.4rem; }
 
@@ -178,29 +325,40 @@ td.bad  { background: var(--bad-bg);  color: var(--bad-text);  font-weight: 600;
 }
 .members a {
   display: block;
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.7rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
   text-decoration: none;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
   overflow-wrap: anywhere;
 }
-.members a:hover { border-color: var(--accent); }
-
-pre.doc {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  overflow-x: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-  line-height: 1.5;
+.members a:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
 }
 
-.detail { font-size: 1.05rem; }
+/* The configuration document itself, on upstream's dark code surface: the
+ * machine's own text, plainly not part of the interface around it. */
+
+pre.doc {
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--code-border);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+pre.doc code { font-size: inherit; color: inherit; }
+
+.detail {
+  font-size: 1.05rem;
+  font-weight: 300;
+  color: var(--muted);
+  max-width: 48rem;
+}
 
 .visually-hidden {
   position: absolute;
@@ -213,112 +371,71 @@ pre.doc {
 
 /* Write forms — only reachable when writes are enabled. */
 
-label { display: block; font-weight: 600; margin-bottom: 0.4rem; }
+label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.4rem; }
 
 textarea {
   width: 100%;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--field);
   padding: 0.8rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
   resize: vertical;
 }
 
-.actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+input[type="text"], input[type="number"], input[type="file"], select {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--field);
+  padding: 0.5rem 0.7rem;
+}
+input[type="text"] { width: 100%; margin-bottom: 0.5rem; }
+input[type="number"] { width: 12rem; }
+select { min-width: 12rem; }
+::placeholder { color: var(--muted); opacity: 1; }
+/* The muted grey that reads on a light field is not legible on the dark code
+ * surface the JSON and PEM fields use. */
+textarea::placeholder { color: var(--code-muted); }
+
+.actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; }
 
 button, .button-secondary {
-  font: inherit;
-  padding: 0.5rem 1.1rem;
-  border-radius: var(--radius);
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.5rem 1.05rem;
   border: 1px solid transparent;
   cursor: pointer;
   text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-button { background: var(--accent); color: var(--surface); font-weight: 600; }
-button:hover { filter: brightness(1.08); }
-.button-secondary {
+button { background: var(--accent); color: var(--on-accent); }
+button:hover { background: var(--accent-hover); }
+.button-secondary, button.button-secondary {
   background: var(--surface);
-  border-color: var(--border);
+  border-color: var(--field);
   color: var(--text);
+  font-weight: 400;
 }
-.button-secondary:hover { border-color: var(--accent); }
+.button-secondary:hover, button.button-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 td form { margin: 0; }
 
-.bad-box {
-  background: var(--bad-bg);
-  color: var(--bad-text);
-  border: 1px solid var(--bad-text);
-  border-radius: var(--radius);
-  padding: 0.75rem 1rem;
-}
-
-.identity {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 0.85rem;
-  padding: 0.2rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-/* Specification reference */
-
-.reference table { font-size: 0.92rem; }
-.reference td .hint { display: inline; }
-
-.tag {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  background: var(--warn-bg);
-  color: var(--warn-text);
-  vertical-align: middle;
-}
-
-.scaffolds { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; padding: 0; list-style: none; }
-.scaffolds a {
-  display: block;
-  padding: 0.45rem 0.8rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-.scaffolds a:hover { border-color: var(--accent); }
-
-/* Advisory findings */
-
-.findings {
-  border: 1px solid var(--warn-text);
-  background: var(--warn-bg);
-  color: var(--warn-text);
-  border-radius: var(--radius);
-  padding: 0.85rem 1.1rem;
-  margin-bottom: 1rem;
-}
-.findings h2 { margin: 0 0 0.5rem; font-size: 1rem; }
-.findings ul { margin: 0; padding-left: 1.1rem; }
-.findings li { margin-bottom: 0.25rem; }
-.findings li.uncertain { opacity: 0.85; }
-.findings code { font-weight: 600; }
-.findings .hint { color: inherit; opacity: 0.85; margin-bottom: 0; }
-
-button.button-secondary { background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 400; }
-
-/* Applied banner */
+/* Notices. Upstream marks an aside with a 3px accent rule and its pale tint;
+ * the warning and failure states borrow the shape and change the hue. */
 
 .applied {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: var(--radius);
+  background: var(--accent-light);
+  border-left: 3px solid var(--accent);
   padding: 0.85rem 1.1rem;
   margin-bottom: 1.25rem;
   display: flex;
@@ -329,46 +446,95 @@ button.button-secondary { background: var(--surface); color: var(--text); border
 }
 .applied p { margin: 0; }
 .applied form { margin: 0; }
-.applied.warn-box { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-text); }
+.applied strong { color: var(--accent); font-weight: 600; }
+.applied.warn-box {
+  background: var(--warn-bg);
+  border-left-color: var(--warn-text);
+  color: var(--warn-text);
+}
+.applied.warn-box strong { color: inherit; }
 
-input[type="text"] {
-  width: 100%;
-  font: inherit;
-  padding: 0.5rem 0.7rem;
-  margin-bottom: 0.5rem;
+.findings {
+  background: var(--warn-bg);
+  border-left: 3px solid var(--warn-text);
+  color: var(--warn-text);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.findings h2 {
+  display: block;
+  margin: 0 0 0.6rem;
+  color: inherit;
+}
+.findings h2::after { display: none; }
+.findings ul { margin: 0; padding-left: 1.1rem; }
+.findings li { margin-bottom: 0.25rem; }
+.findings li.uncertain { opacity: 0.9; }
+.findings code { font-weight: 600; }
+.findings .hint { color: inherit; margin-bottom: 0; }
+
+.bad-box {
+  background: var(--bad-bg);
+  border-left: 3px solid var(--bad-text);
+  color: var(--bad-text);
+  padding: 0.8rem 1.1rem;
+}
+
+/* Specification reference */
+
+.reference table { font-size: 0.92rem; }
+.reference td .hint { display: inline; }
+
+.tag {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.4rem;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  vertical-align: 0.08em;
+}
+
+.scaffolds { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.scaffolds a {
+  display: block;
+  padding: 0.5rem 0.85rem;
   background: var(--surface);
-  color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+.scaffolds a:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
 }
 
 /* Editing modes and the guided form */
 
-.modes { display: flex; gap: 0.75rem; margin: 0 0 1.25rem; font-size: 0.9rem; }
+.modes { display: flex; gap: 0.5rem; margin: 0 0 1.5rem; font-family: var(--mono); font-size: 0.8rem; }
 .modes a, .modes span {
-  padding: 0.3rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--field);
   text-decoration: none;
+  color: var(--text);
 }
-.modes span[aria-current] { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.modes a:hover { border-color: var(--accent); color: var(--accent); }
+.modes span[aria-current] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
 
 dl.fields { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: 0.4rem 1.25rem; margin: 0 0 1.25rem; }
 dl.fields dt { padding-top: 0.55rem; }
 dl.fields dd { margin: 0; }
-dl.fields label { font-weight: 600; margin: 0; }
+dl.fields label { font-family: var(--mono); font-weight: 600; margin: 0; }
+dl.fields input, dl.fields select { font-family: var(--mono); font-size: 0.875rem; }
 dl.fields .hint { margin: 0.15rem 0 0.5rem; font-size: 0.85rem; }
-
-select {
-  font: inherit;
-  padding: 0.5rem 0.7rem;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  min-width: 12rem;
-}
-input[type="number"] { width: 12rem; }
 
 @media (max-width: 46rem) {
   dl.fields { grid-template-columns: 1fr; }
@@ -378,20 +544,26 @@ input[type="number"] { width: 12rem; }
 /* Diff */
 
 .change {
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: var(--border);
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.45rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
 }
-.change.added { background: #d8f0d8; color: #14501a; }
-.change.removed { background: var(--bad-bg); color: var(--bad-text); }
-.change.changed { background: var(--warn-bg); color: var(--warn-text); }
-@media (prefers-color-scheme: dark) { .change.added { background: #1d3a1f; color: #a8e0ac; } }
+.change.added { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.change.removed { background: var(--bad-bg); border-color: var(--bad-text); color: var(--bad-text); }
+.change.changed { background: var(--warn-bg); border-color: var(--warn-text); color: var(--warn-text); }
 
 code.value { word-break: break-all; font-size: 0.85rem; }
 .row-actions { display: flex; gap: 0.5rem; align-items: center; }
 .row-actions form { margin: 0; }
-form.compare { display: flex; gap: 0.6rem; align-items: end; flex-wrap: wrap; margin-bottom: 1.25rem; }
+form.compare { display: flex; gap: 0.6rem; align-items: end; flex-wrap: wrap; margin-bottom: 1.5rem; }
 form.compare label { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

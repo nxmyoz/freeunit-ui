@@ -3,9 +3,9 @@
 A web interface for the [FreeUnit](https://github.com/freeunitorg/freeunit) control API, the
 community LTS fork of NGINX Unit.
 
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
-![Read-only by default](https://img.shields.io/badge/config_writes-opt--in-informational.svg)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-006644.svg?style=flat-square&labelColor=1a1a1a)](LICENSE)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-006644.svg?style=flat-square&labelColor=1a1a1a)
+![Read-only by default](https://img.shields.io/badge/config%20writes-opt--in-006644.svg?style=flat-square&labelColor=1a1a1a)
 
 Unit is configured entirely through a JSON REST API rather than config files, which makes it
 excellent to automate and awkward to inspect. Every "nginx GUI" project out there targets classic

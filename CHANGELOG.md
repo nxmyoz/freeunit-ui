@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The interface now looks like the project it configures: FreeUnit's own warm off-white ground,
+  deep green accent and IBM Plex type, square corners throughout, and section labels set as small
+  mono captions carried by a hairline. The fonts are named rather than fetched, so the
+  `default-src 'none'` policy is unchanged and nothing is requested from a third party.
+- Configuration documents and the JSON and PEM fields that edit them sit on a dark code surface,
+  so the machine's own text is plainly not part of the interface around it.
+- Form controls, buttons and the segmented mode switch have a boundary that clears the 3:1 of
+  WCAG 1.4.11; previously they were drawn with the decorative hairline.
+- A diff's *added* badge now uses the accent rather than a second, unrelated green.
+- The dark palette is derived from the same tokens, so both schemes carry at least 4.5:1 on text
+  and 3:1 on control boundaries.
+
 ## [0.4.0] - 2026-09-15
 
 ### Added
